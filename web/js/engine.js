@@ -215,10 +215,11 @@ export function pathDist(board, p) {
 
 // Rim defence for player p: how many of p's own two rim sides are anchored by a
 // STABLE own presence. A rim side is counted as held when it contains at least one
-// own cell that has an adjacent own neighbour — i.e. an own *pair*, which cannot be
-// starved out (a lone cell with 0 neighbours dies of isolation). Holding such a
-// pair on a side permanently prevents an opponent from conquering that whole rim
-// side and using it to block the two other colours (see issue #7). Returns 0..2.
+// own cell that has an adjacent own neighbour on that same rim side — i.e. an own
+// *rim pair*, which cannot be starved out (a lone cell with 0 neighbours dies of
+// isolation). Holding such a pair on a side permanently prevents an opponent from
+// conquering that whole rim side and using it to block the two other colours (see
+// issue #7). Returns 0..2.
 export function rimAnchors(board, p) {
   let held = 0;
   for (const side of [SIDES[p].plus, SIDES[p].minus]) {
@@ -226,7 +227,7 @@ export function rimAnchors(board, p) {
     for (const i of side) {
       if (board[i] !== p) continue;
       for (const j of NBRS[i]) {
-        if (board[j] === p) { anchored = true; break; }
+        if (board[j] === p && side.includes(j)) { anchored = true; break; }
       }
       if (anchored) break;
     }

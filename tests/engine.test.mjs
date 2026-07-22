@@ -143,6 +143,14 @@ check('pathDist finite at start', [0, 1, 2].every(p => Number.isFinite(pathDist(
     check('rimAnchors: a stable pair anchors one own side', rimAnchors(b, 0) === 1);
   }
 
+  // a rim cell paired only with an interior own neighbour does not anchor a side
+  {
+    const b = empty();
+    b[idx(3, -2, -1)] = 0; // plus rim (x == +3)
+    b[idx(2, -2, 0)] = 0;  // adjacent interior cell
+    check('rimAnchors: rim+interior pair does not anchor a side', rimAnchors(b, 0) === 0);
+  }
+
   // stable pairs on BOTH own rim sides -> both counted
   {
     const b = empty();
