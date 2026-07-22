@@ -42,13 +42,20 @@ class Controller {
   _bindControls() {
     $('#start-btn').addEventListener('click', () => this.start());
     $('#new-game-btn').addEventListener('click', () => this.reset());
-    const speed = $('#ai-speed');
-    const applySpeed = () => {
-      this.aiMoveMs = Math.round(parseFloat(speed.value) * 1000);
-      $('#ai-speed-value').textContent = `${parseFloat(speed.value).toFixed(1)} s per move`;
+    // The AI move-speed knob appears on both the setup page and the play page;
+    // keep them in sync and drive both the move delay and the marker fade time.
+    this.speedInputs = [$('#ai-speed'), $('#ai-speed-game')].filter(Boolean);
+    this.speedLabels = [$('#ai-speed-value'), $('#ai-speed-game-value')].filter(Boolean);
+    const applySpeed = (val) => {
+      const v = parseFloat(val);
+      this.aiMoveMs = Math.round(v * 1000);
+      const text = `${v.toFixed(1)} s per move`;
+      this.speedInputs.forEach((inp) => { inp.value = String(v); });
+      this.speedLabels.forEach((lab) => { lab.textContent = text; });
+      if (this.history.length) this.draw();
     };
-    speed.addEventListener('input', applySpeed);
-    applySpeed();
+    this.speedInputs.forEach((inp) => inp.addEventListener('input', (e) => applySpeed(e.target.value)));
+    applySpeed(this.speedInputs.length ? this.speedInputs[0].value : 2);
     $('#scrubber').addEventListener('input', (e) => this.viewAt(+e.target.value));
     $('#hist-first').addEventListener('click', () => this.viewAt(0));
     $('#hist-prev').addEventListener('click', () => this.viewAt(this.viewIdx - 1));
@@ -150,6 +157,7 @@ class Controller {
       born: snap.born,
       died: snap.died,
       showHighlights: true,
+      fadeMs: this.aiMoveMs,
     });
     renderPlayers($('#players'), this.gameForView(snap), this.seatTypes);
     this.drawBanner(snap);
