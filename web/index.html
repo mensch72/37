@@ -19,15 +19,15 @@
         <div class="seat-config" data-seat="0">
           <span class="chip chip-0" aria-hidden="true"></span>
           <label>Red<select data-role="type">
-            <option value="human">Human</option>
-            <option value="ai" selected>Computer</option>
+            <option value="human" selected>Human</option>
+            <option value="ai">Computer</option>
           </select></label>
         </div>
         <div class="seat-config" data-seat="1">
           <span class="chip chip-1" aria-hidden="true"></span>
           <label>Yellow<select data-role="type">
-            <option value="human" selected>Human</option>
-            <option value="ai">Computer</option>
+            <option value="human">Human</option>
+            <option value="ai" selected>Computer</option>
           </select></label>
         </div>
         <div class="seat-config" data-seat="2">
@@ -55,6 +55,10 @@
             <option value="0">Fast — learned policy only</option>
           </select>
         </label>
+        <label>Computer move speed:
+          <input type="range" id="ai-speed" min="0" max="5" step="0.5" value="2" />
+          <span class="speed-value" id="ai-speed-value">2.0 s per move</span>
+        </label>
       </div>
       <button id="start-btn" class="primary">Start game</button>
       <p class="ai-status" id="ai-status"></p>
@@ -74,7 +78,7 @@
           <p id="growth-summary">—</p>
           <ul class="legend">
             <li><span class="mark born" aria-hidden="true"></span> born (ring)</li>
-            <li><span class="mark died" aria-hidden="true"></span> died (fading)</li>
+            <li><span class="mark died" aria-hidden="true"></span> died (coloured cross)</li>
           </ul>
         </div>
 
@@ -99,37 +103,34 @@
       <details>
         <summary>How to play</summary>
         <div class="rules-body">
-          <p><strong>37</strong> is a three-player game on a hexagon of 37 cells. Each
-          bird (Red, Yellow, Blue) owns one pair of opposite sides of the boulder. You
-          win by joining your two sides with an unbroken chain of your own lichen — the
-          shortest possible chain is 7 cells, hence the name.</p>
-          <p><strong>Your move</strong>: either <em>drop</em> a fleck of lichen from your
-          beak onto an empty cell, or <em>pick</em> one of your own cells back into your
-          beak. Then the whole boulder grows at once:</p>
+          <p><strong>37</strong> is a game for three birds tending lichen on a single
+          boulder of 37 cells. Each bird — Red, Yellow and Blue — guards one pair of
+          opposite edges of the rock. You win the moment your colour of lichen forms an
+          unbroken chain linking your two edges. The shortest such chain spans just seven
+          cells: three birds, thirty-seven cells, a seven-cell path — hence the name.</p>
+          <p><strong>On your turn</strong> you make a single choice: either <em>drop</em> a
+          fleck of lichen from your beak onto an empty cell, or <em>pick</em> one of your
+          own cells back up into your beak. Then, all at once, the whole boulder grows:</p>
           <ul>
-            <li>a living cell with 0 neighbours dies of isolation;</li>
-            <li>a living cell with 1–4 neighbours survives;</li>
-            <li>a living cell with 5–6 neighbours dies of crowding;</li>
-            <li>an empty cell with exactly 4 neighbours is <em>born</em> — its colour is
-            the majority of its four parents, the plurality in a 2-1-1, or, in a 2-2 tie,
-            <em>the absent third colour</em>.</li>
+            <li>a cell with no living neighbours withers away in isolation;</li>
+            <li>a cell with one to four neighbours holds fast and survives;</li>
+            <li>a cell with five or six neighbours is smothered and dies of crowding;</li>
+            <li>an empty cell with exactly four neighbours springs to life. Its colour is
+            the majority among its four parents, the plurality in a 2-1-1 split, or — when
+            two colours tie 2-2 — <em>the third, absent colour</em>.</li>
           </ul>
-          <p>Newborn flecks come from the box and dead flecks return to it; your beak
-          only ever exchanges flecks with the boulder. Your beak starts with <em>N</em>
-          flecks — the whole difficulty dial. A move may not recreate a position that has
-          already occurred; a player with no cells and an empty beak is out.</p>
-          <p>Colours are shown by hue <em>and</em> shape (Red ▲, Yellow ●, Blue ■) so the
-          board stays readable without relying on the red–green axis.</p>
+          <p>Fresh flecks arrive from the box and dead ones return to it; your beak only
+          ever trades flecks with the boulder. It starts holding <em>N</em> flecks, and
+          that single number is the whole difficulty dial. You may never recreate a
+          position that has already appeared, and a bird with no lichen on the rock and an
+          empty beak is out of the game.</p>
+          <p>Every colour is told apart by hue <em>and</em> by shape (Red hexagon, Yellow
+          star, Blue circle), so the board stays clear without leaning on the red–green
+          axis.</p>
         </div>
       </details>
     </section>
   </main>
-
-  <footer>
-    <p>A static web app — everything, including the learned computer player, runs in your
-    browser. Rules and design from the <code>sandbox/</code> exploration in this
-    repository.</p>
-  </footer>
 
   <script type="module" src="js/main.js"></script>
 </body>

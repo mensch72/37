@@ -7,8 +7,8 @@
   --blue-soft: #b3cef0;
   --rock: #6b6f76;
   --rock-light: #8b9098;
-  --empty: #e9e6df;
-  --empty-line: #cfc9bd;
+  --empty: #333333;
+  --empty-line: #000000;
   --bg: #f6f4ef;
   --ink: #2a2a2a;
   --panel: #ffffff;
@@ -60,11 +60,13 @@ h2 { margin-top: 0; }
 .seat-config select, .difficulty select { margin-top: 0.15rem; padding: 0.3rem; border-radius: 6px; border: 1px solid #ccc; }
 .difficulty { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: 1rem 0; }
 .difficulty label { display: flex; flex-direction: column; font-weight: 600; font-size: 0.9rem; }
+.speed-value { font-weight: 400; font-size: 0.8rem; color: #6a675f; margin-top: 0.2rem; }
+#ai-speed { margin-top: 0.15rem; }
 
-.chip { width: 18px; height: 18px; display: inline-block; border-radius: 3px; }
-.chip-0 { background: var(--red); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
-.chip-1 { background: var(--yellow); border-radius: 50%; }
-.chip-2 { background: var(--blue); }
+.chip { width: 18px; height: 18px; display: inline-block; }
+.chip-0 { background: var(--red); clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
+.chip-1 { background: var(--yellow); clip-path: polygon(50% 0%, 62% 34%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 38% 34%); }
+.chip-2 { background: var(--blue); border-radius: 50%; }
 
 button {
   font: inherit;
@@ -89,7 +91,7 @@ button.primary:hover { background: #444; }
 @media (max-width: 780px) { .game { grid-template-columns: 1fr; } }
 
 .board-wrap { position: relative; }
-#board { width: 100%; height: auto; display: block; background: radial-gradient(circle at 50% 40%, #fbfaf7, #eceae3); border-radius: 12px; }
+#board { width: 100%; height: auto; display: block; background: radial-gradient(circle at 50% 40%, #444649, #2b2c2e); border-radius: 12px; }
 
 .turn-banner {
   text-align: center;
@@ -104,15 +106,16 @@ button.primary:hover { background: #444; }
 .cell { cursor: default; }
 .cell.playable { cursor: pointer; }
 .cell-bg { transition: fill 0.25s ease; }
-.cell.playable .cell-bg:hover { stroke: #333; stroke-width: 1.5; }
+.cell.playable .cell-bg:hover { stroke: #fff; stroke-width: 1.5; }
 
 .stone { transition: transform 0.25s ease, opacity 0.25s ease; }
 .stone-0 { fill: var(--red); }
 .stone-1 { fill: var(--yellow); }
 .stone-2 { fill: var(--blue); }
 
-.born-ring { fill: none; stroke: #1a1a1a; stroke-width: 2.2; stroke-dasharray: 3 2; opacity: 0.9; }
-.died-mark { fill: none; stroke: #7a7a7a; stroke-width: 1.6; opacity: 0.7; }
+.side-marker { stroke-width: 3; stroke-linecap: round; }
+.born-ring { fill: none; stroke: #f2f0ea; stroke-width: 2.2; stroke-dasharray: 3 2; opacity: 0.95; }
+.died-mark { fill: none; stroke-width: 1.4; stroke-linecap: round; opacity: 0.9; }
 
 /* side panel */
 .side > * { margin-bottom: 1rem; }
@@ -148,9 +151,6 @@ button.primary:hover { background: #444; }
 
 .rules-body ul { margin: 0.4rem 0; padding-left: 1.2rem; }
 .rules summary { cursor: pointer; font-weight: 600; }
-
-footer { text-align: center; padding: 1rem; color: #7a776f; font-size: 0.8rem; }
-footer code { background: #ece9e2; padding: 0 0.3rem; border-radius: 4px; }
 
 .winner-glow { animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 0%,100% { filter: none; } 50% { filter: drop-shadow(0 0 6px currentColor); } }
