@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-  CELLS, NBRS, N, EMPTY, growth, connected, pathDist, initialBoard, Game,
+  CELLS, NBRS, N, EMPTY, growth, connected, pathDist, initialBoard, Game, rimAnchors, IDX,
 } from '../web/js/engine.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -117,6 +117,54 @@ check('pathDist finite at start', [0, 1, 2].every(p => Number.isFinite(pathDist(
     if (g.over || steps < 1000) terminated++;
   }
   check(`random games terminate (${terminated}/${games})`, terminated === games);
+}
+
+// 9. rimAnchors: counts only rim sides held by a STABLE own pair (issue #7).
+{
+  const idx = (x, y, z) => IDX.get(`${x},${y},${z}`);
+  const empty = () => new Int8Array(N).fill(EMPTY);
+
+  // no cells at all -> nothing anchored
+  check('rimAnchors: empty board holds 0 sides', rimAnchors(empty(), 0) === 0);
+
+  // a lone own cell on the plus rim is NOT stable (a single cell starves) ->
+  // it must not count as a held side
+  {
+    const b = empty();
+    b[idx(3, -3, 0)] = 0; // player 0 owns axis x; plus side is x == +3
+    check('rimAnchors: a lone rim cell does not anchor a side', rimAnchors(b, 0) === 0);
+  }
+
+  // an adjacent own PAIR on the plus rim anchors exactly that one side
+  {
+    const b = empty();
+    b[idx(3, -3, 0)] = 0;
+    b[idx(3, -2, -1)] = 0; // adjacent rim neighbour -> stable pair
+    check('rimAnchors: a stable pair anchors one own side', rimAnchors(b, 0) === 1);
+  }
+
+  // a rim cell paired only with an interior own neighbour does not anchor a side
+  {
+    const b = empty();
+    b[idx(3, -2, -1)] = 0; // plus rim (x == +3)
+    b[idx(2, -2, 0)] = 0;  // adjacent interior cell
+    check('rimAnchors: rim+interior pair does not anchor a side', rimAnchors(b, 0) === 0);
+  }
+
+  // stable pairs on BOTH own rim sides -> both counted
+  {
+    const b = empty();
+    b[idx(3, -3, 0)] = 0; b[idx(3, -2, -1)] = 0;   // plus side (x == +3)
+    b[idx(-3, 3, 0)] = 0; b[idx(-3, 2, 1)] = 0;    // minus side (x == -3)
+    check('rimAnchors: pairs on both own sides count as 2', rimAnchors(b, 0) === 2);
+  }
+
+  // an opponent's stable pair on player 0's rim does not count for player 0
+  {
+    const b = empty();
+    b[idx(3, -3, 0)] = 1; b[idx(3, -2, -1)] = 1;
+    check('rimAnchors: only own colour anchors a side', rimAnchors(b, 0) === 0);
+  }
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
