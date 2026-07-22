@@ -53,8 +53,10 @@ export class Renderer {
       const bg = document.createElementNS(SVGNS, 'polygon');
       bg.setAttribute('points', hexPoints(cx, cy));
       bg.setAttribute('class', 'cell-bg');
-      bg.setAttribute('fill', 'var(--empty)');
-      bg.setAttribute('stroke', '#000');
+      // Colors come from CSS custom properties, which are only resolved when set
+      // as CSS declarations (inline style) — NOT as SVG presentation attributes.
+      bg.style.fill = 'var(--empty)';
+      bg.style.stroke = 'var(--empty-line)';
       bg.setAttribute('stroke-width', '0.7');
       g.appendChild(bg);
 
@@ -106,7 +108,7 @@ export class Renderer {
         line.setAttribute('x2', ends[1][0].toFixed(2));
         line.setAttribute('y2', ends[1][1].toFixed(2));
         line.setAttribute('class', 'side-marker');
-        line.setAttribute('stroke', colorVars[ax]);
+        line.style.stroke = colorVars[ax];
         this.svg.appendChild(line);
       }
     }
@@ -144,7 +146,7 @@ export class Renderer {
         const d = SIZE * 0.28;
         x.setAttribute('d', `M ${cg.cx - d} ${cg.cy - d} L ${cg.cx + d} ${cg.cy + d} M ${cg.cx + d} ${cg.cy - d} L ${cg.cx - d} ${cg.cy + d}`);
         x.setAttribute('class', 'died-mark');
-        x.setAttribute('stroke', COLOR_VAR[diedMap.get(i)]);
+        x.style.stroke = COLOR_VAR[diedMap.get(i)];
         if (fadeMs > 0) { x.classList.add('marker-fade'); x.style.animationDuration = `${fadeMs}ms`; }
         cg.g.appendChild(x); cg.marks.push(x);
       }
