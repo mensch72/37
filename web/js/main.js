@@ -6,8 +6,14 @@ import { Policy, LearnedPlayer } from './ai.js';
 
 const $ = (sel) => document.querySelector(sel);
 
+// Beak dial (issue #1's "N"): the number of stones a seat can hold off-board, i.e.
+// how many drops it can make before it must pick one back up. "novice" is the
+// game's "unlimited beak" rule; we use a large finite value rather than Infinity
+// because the learned AI's features normalise the beak count (dividing by 8), so a
+// non-finite value would poison inference. 37 cells make 37 an unreachable cap.
+const UNLIMITED_BEAK = 37;
 const DIFFICULTY = {
-  novice: { beak: [40, 40, 40] },
+  novice: { beak: [UNLIMITED_BEAK, UNLIMITED_BEAK, UNLIMITED_BEAK] },
   advanced: { beak: [4, 4, 4] },
   expert: { beak: [2, 2, 2] },
   handicap: { beak: [4, 3, 2] },

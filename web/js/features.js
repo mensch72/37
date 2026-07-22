@@ -16,6 +16,11 @@ const PATHF = N;        // self shortest-path membership field
 const SCALARS = 6;      // path dist (self/next/prev) + beak sizes (self/next/prev)
 export const FEAT_LEN = OCC + EMPTYF + PATHF + SCALARS; // 191
 
+// Finite fallback used when a colour has no path between its two sides (distance is
+// infinite): the scalar feature 1/(1+d) then maps to a small positive value. Must
+// match the Python reference (training/hexlife37.py) so weights transfer unchanged.
+const FAR_PATH_DIST = 20;
+
 // Build the canonical board for acting player p: canonical cell i holds the colour
 // of real cell PERM[p][i], relabelled so self=0, next=1, prev=2.
 export function canonicalBoard(board, p) {
@@ -115,9 +120,9 @@ export function computeFeatures(board, beaks, p) {
   const sb = base + PATHF;
   const pdNext = pathDistOf(cb, 1).best;
   const pdPrev = pathDistOf(cb, 2).best;
-  f[sb + 0] = 1.0 / (1.0 + (Number.isFinite(self.best) ? self.best : 20));
-  f[sb + 1] = 1.0 / (1.0 + (Number.isFinite(pdNext) ? pdNext : 20));
-  f[sb + 2] = 1.0 / (1.0 + (Number.isFinite(pdPrev) ? pdPrev : 20));
+  f[sb + 0] = 1.0 / (1.0 + (Number.isFinite(self.best) ? self.best : FAR_PATH_DIST));
+  f[sb + 1] = 1.0 / (1.0 + (Number.isFinite(pdNext) ? pdNext : FAR_PATH_DIST));
+  f[sb + 2] = 1.0 / (1.0 + (Number.isFinite(pdPrev) ? pdPrev : FAR_PATH_DIST));
   // beak sizes in canonical order, normalised.
   f[sb + 3] = beaks[p] / 8.0;
   f[sb + 4] = beaks[(p + 1) % 3] / 8.0;
