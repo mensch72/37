@@ -7,7 +7,7 @@
 // (2N logits over canonical drop/pick actions) and a value head (a scalar in
 // (-1,1), the expected outcome for the acting/self player).
 
-import { N, EMPTY, decodeMove, encodeMove, MOVE_DROP, winnerAfter, growth } from './engine.js';
+import { N, EMPTY, decodeMove, encodeMove, MOVE_DROP, winnerAfter, growth, rimAnchors } from './engine.js';
 import { computeFeatures, canonicalMask, canonicalActionToReal, FEAT_LEN } from './features.js';
 
 // ---- linear algebra on flat Float32Array weights ----
@@ -95,11 +95,15 @@ export class Policy {
 // player pick their value-maximising reply (a max-n backup restricted to the top-K
 // policy moves to bound cost). Move ordering / priors come from the policy head.
 export class LearnedPlayer {
-  constructor(policy, { depth = 1, topK = 8, temperature = 0.0 } = {}) {
+  constructor(policy, { depth = 1, topK = 8, temperature = 0.0, rimDefense = 0.08 } = {}) {
     this.policy = policy;
     this.depth = depth;
     this.topK = topK;
     this.temperature = temperature;
+    // Weight of the rim-defence nudge (per own rim side anchored by a stable pair).
+    // Small enough never to override a real win/loss but enough to break ties in
+    // favour of not being blocked out of one's own sides (issue #7).
+    this.rimDefense = rimDefense;
   }
 
   // Value of a position for player `perspective`, from the value net.
@@ -182,6 +186,12 @@ export class LearnedPlayer {
       } else {
         const nextPlayer = (p + 1) % 3;
         val = this._search(resBoard, nk, nextPlayer, this.depth - 1, p, null);
+      }
+      // Strategic nudge: prefer positions that keep a stable own pair anchoring
+      // each of our two rim sides, so opponents cannot conquer a whole side and
+      // permanently block us (issue #7). Skipped for decisive positions.
+      if (win === null && this.rimDefense > 0) {
+        val += this.rimDefense * rimAnchors(resBoard, p);
       }
       // canonical prior for this real move
       // map real->canonical action index for prior lookup
