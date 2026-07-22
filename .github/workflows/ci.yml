@@ -1,0 +1,24 @@
+# Run the engine unit tests: regenerate the Python reference vectors and check the
+# JavaScript growth step against them, then run the JS engine/AI integration tests.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Regenerate reference vectors from the Python reference
+        run: python3 tests/gen_reference.py 3000
+      - name: Run engine + feature-parity tests
+        run: npm test

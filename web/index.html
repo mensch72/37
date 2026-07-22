@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>37 — a lichen-and-birds board game</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <h1>37</h1>
+    <p class="tagline">Three birds, one boulder, a garden of lichen that grows by its own rules.</p>
+  </header>
+
+  <main>
+    <section class="setup" id="setup">
+      <h2>New game</h2>
+      <div class="seats">
+        <div class="seat-config" data-seat="0">
+          <span class="chip chip-0" aria-hidden="true"></span>
+          <label>Red<select data-role="type">
+            <option value="human">Human</option>
+            <option value="ai" selected>Computer</option>
+          </select></label>
+        </div>
+        <div class="seat-config" data-seat="1">
+          <span class="chip chip-1" aria-hidden="true"></span>
+          <label>Yellow<select data-role="type">
+            <option value="human" selected>Human</option>
+            <option value="ai">Computer</option>
+          </select></label>
+        </div>
+        <div class="seat-config" data-seat="2">
+          <span class="chip chip-2" aria-hidden="true"></span>
+          <label>Blue<select data-role="type">
+            <option value="human">Human</option>
+            <option value="ai" selected>Computer</option>
+          </select></label>
+        </div>
+      </div>
+
+      <div class="difficulty">
+        <label>Beak setting (N):
+          <select id="difficulty">
+            <option value="novice">Novice — unlimited beak (0 births to win)</option>
+            <option value="advanced" selected>Advanced — beak 4 (1 birth to win)</option>
+            <option value="expert">Expert — beak 2 (3 births to win)</option>
+            <option value="handicap">Handicap — 4 / 3 / 2 per seat</option>
+          </select>
+        </label>
+        <label>Computer strength:
+          <select id="ai-strength">
+            <option value="1">Standard — learned policy + 1-ply value search</option>
+            <option value="2">Strong — learned policy + 2-ply value search</option>
+            <option value="0">Fast — learned policy only</option>
+          </select>
+        </label>
+      </div>
+      <button id="start-btn" class="primary">Start game</button>
+      <p class="ai-status" id="ai-status"></p>
+    </section>
+
+    <section class="game hidden" id="game">
+      <div class="board-wrap">
+        <svg id="board" viewBox="-100 -100 200 200" role="img" aria-label="game board"></svg>
+        <div class="turn-banner" id="turn-banner"></div>
+      </div>
+
+      <aside class="side">
+        <div class="players" id="players"></div>
+
+        <div class="growth-log">
+          <h3>Last growth step</h3>
+          <p id="growth-summary">—</p>
+          <ul class="legend">
+            <li><span class="mark born" aria-hidden="true"></span> born (ring)</li>
+            <li><span class="mark died" aria-hidden="true"></span> died (fading)</li>
+          </ul>
+        </div>
+
+        <div class="history-controls">
+          <h3>Move history</h3>
+          <input type="range" id="scrubber" min="0" max="0" value="0" step="1" />
+          <div class="history-buttons">
+            <button id="hist-first" title="start">⏮</button>
+            <button id="hist-prev" title="back">◀</button>
+            <span id="hist-label">0 / 0</span>
+            <button id="hist-next" title="forward">▶</button>
+            <button id="hist-last" title="latest">⏭</button>
+          </div>
+          <p class="hint" id="hint"></p>
+        </div>
+
+        <button id="new-game-btn">New game</button>
+      </aside>
+    </section>
+
+    <section class="rules">
+      <details>
+        <summary>How to play</summary>
+        <div class="rules-body">
+          <p><strong>37</strong> is a three-player game on a hexagon of 37 cells. Each
+          bird (Red, Yellow, Blue) owns one pair of opposite sides of the boulder. You
+          win by joining your two sides with an unbroken chain of your own lichen — the
+          shortest possible chain is 7 cells, hence the name.</p>
+          <p><strong>Your move</strong>: either <em>drop</em> a fleck of lichen from your
+          beak onto an empty cell, or <em>pick</em> one of your own cells back into your
+          beak. Then the whole boulder grows at once:</p>
+          <ul>
+            <li>a living cell with 0 neighbours dies of isolation;</li>
+            <li>a living cell with 1–4 neighbours survives;</li>
+            <li>a living cell with 5–6 neighbours dies of crowding;</li>
+            <li>an empty cell with exactly 4 neighbours is <em>born</em> — its colour is
+            the majority of its four parents, the plurality in a 2-1-1, or, in a 2-2 tie,
+            <em>the absent third colour</em>.</li>
+          </ul>
+          <p>Newborn flecks come from the box and dead flecks return to it; your beak
+          only ever exchanges flecks with the boulder. Your beak starts with <em>N</em>
+          flecks — the whole difficulty dial. A move may not recreate a position that has
+          already occurred; a player with no cells and an empty beak is out.</p>
+          <p>Colours are shown by hue <em>and</em> shape (Red ▲, Yellow ●, Blue ■) so the
+          board stays readable without relying on the red–green axis.</p>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <footer>
+    <p>A static web app — everything, including the learned computer player, runs in your
+    browser. Rules and design from the <code>sandbox/</code> exploration in this
+    repository.</p>
+  </footer>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
