@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+node_modules/
+
+# generated at test time from the Python reference
+tests/vectors.json

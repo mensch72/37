@@ -1,0 +1,12 @@
+{
+  "name": "game-37",
+  "version": "1.0.0",
+  "private": true,
+  "description": "37 — a 3-player cellular-automaton board game as a static web app with a learned computer player",
+  "type": "module",
+  "scripts": {
+    "test": "python3 tests/gen_reference.py 2000 && node tests/engine.test.mjs && node tests/features.test.mjs",
+    "serve": "node --version >/dev/null && cd web && python3 -m http.server 8000"
+  },
+  "license": "MIT"
+}

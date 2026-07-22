@@ -1,0 +1,27 @@
+{
+  "weights": "/home/runner/work/37/37/training/../web/weights/policy.json",
+  "baseline_pct": 33.3,
+  "rows": [
+    {
+      "mode": "raw",
+      "label": "raw policy (argmax)",
+      "games": 300,
+      "vs_random": 73.7,
+      "vs_greedy": 3.3
+    },
+    {
+      "mode": "search1",
+      "label": "policy + 1-ply value search (shipped 'Standard')",
+      "games": 300,
+      "vs_random": 99.3,
+      "vs_greedy": 61.7
+    },
+    {
+      "mode": "search2",
+      "label": "policy + 2-ply value search ('Strong')",
+      "games": 120,
+      "vs_random": 100.0,
+      "vs_greedy": 70.8
+    }
+  ]
+}
