@@ -115,7 +115,7 @@ export class Renderer {
   // state: { board, beaks, playable:Set<int>, born:[{i,color}], died:[int],
   //          showHighlights:bool }
   render(state) {
-    const { board, playable, born = [], died = [], showHighlights = true, fadeMs = 0 } = state;
+    const { board, playable, born = [], died = [], showHighlights = true } = state;
     const bornSet = new Set(born.map((b) => b.i));
     const diedMap = new Map(died.map((d) => [d.i, d.color]));
     this.cellGroups.forEach((cg, i) => {
@@ -136,7 +136,6 @@ export class Renderer {
         ring.setAttribute('cx', cg.cx); ring.setAttribute('cy', cg.cy);
         ring.setAttribute('r', SIZE * 0.85);
         ring.setAttribute('class', 'born-ring');
-        if (fadeMs > 0) { ring.classList.add('marker-fade'); ring.style.animationDuration = `${fadeMs}ms`; }
         cg.g.appendChild(ring); cg.marks.push(ring);
       }
       if (showHighlights && diedMap.has(i)) {
@@ -145,7 +144,6 @@ export class Renderer {
         x.setAttribute('d', `M ${cg.cx - d} ${cg.cy - d} L ${cg.cx + d} ${cg.cy + d} M ${cg.cx + d} ${cg.cy - d} L ${cg.cx - d} ${cg.cy + d}`);
         x.setAttribute('class', 'died-mark');
         x.setAttribute('stroke', COLOR_VAR[diedMap.get(i)]);
-        if (fadeMs > 0) { x.classList.add('marker-fade'); x.style.animationDuration = `${fadeMs}ms`; }
         cg.g.appendChild(x); cg.marks.push(x);
       }
     });
@@ -190,6 +188,10 @@ export function renderPlayers(container, game, seatTypes) {
     if (p === game.toMove && !game.over) row.classList.add('active');
     if (game.isEliminated(p)) row.classList.add('eliminated');
 
+    const chip = document.createElement('span');
+    chip.className = `chip chip-${p}`;
+    row.appendChild(chip);
+
     const mid = document.createElement('div');
     const name = document.createElement('div');
     name.className = 'player-name';
@@ -200,26 +202,10 @@ export function renderPlayers(container, game, seatTypes) {
     mid.appendChild(name); mid.appendChild(stats);
     row.appendChild(mid);
 
-    const right = document.createElement('div');
-    right.className = 'player-right';
-
     const tot = document.createElement('div');
     tot.className = 'player-totals';
     tot.textContent = `${game.totalCells(p)} total`;
-    right.appendChild(tot);
-
-    // One shape per stone currently held in the beak, in this player's shape.
-    const beak = document.createElement('div');
-    beak.className = 'player-beak';
-    beak.setAttribute('aria-label', `beak ${game.beaks[p]}`);
-    for (let k = 0; k < game.beaks[p]; k++) {
-      const s = document.createElement('span');
-      s.className = `beak-chip chip-${p}`;
-      s.setAttribute('aria-hidden', 'true');
-      beak.appendChild(s);
-    }
-    right.appendChild(beak);
-    row.appendChild(right);
+    row.appendChild(tot);
 
     container.appendChild(row);
   }
