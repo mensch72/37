@@ -55,7 +55,7 @@ class Controller {
       if (this.history.length) this.draw();
     };
     this.speedInputs.forEach((inp) => inp.addEventListener('input', (e) => applySpeed(e.target.value)));
-    applySpeed($('#ai-speed').value);
+    applySpeed(this.speedInputs.length ? this.speedInputs[0].value : 2);
     $('#scrubber').addEventListener('input', (e) => this.viewAt(+e.target.value));
     $('#hist-first').addEventListener('click', () => this.viewAt(0));
     $('#hist-prev').addEventListener('click', () => this.viewAt(this.viewIdx - 1));
