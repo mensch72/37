@@ -18,7 +18,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Regenerate reference vectors from the Python reference
-        run: python3 tests/gen_reference.py 3000
-      - name: Run engine + feature-parity tests
+      - name: Run engine + feature-parity tests (regenerates reference vectors)
         run: npm test
