@@ -31,16 +31,24 @@ class Controller {
     this.renderer.onCellClick = (i) => this.onCellClick(i);
     this.history = [];   // snapshots
     this.viewIdx = 0;
-    this.seatTypes = ['ai', 'human', 'ai'];
+    this.seatTypes = ['human', 'ai', 'ai'];
     this.game = null;
     this.ai = null;
     this.busy = false;
+    this.aiMoveMs = 2000; // computer move delay so humans can follow the play
     this._bindControls();
   }
 
   _bindControls() {
     $('#start-btn').addEventListener('click', () => this.start());
     $('#new-game-btn').addEventListener('click', () => this.reset());
+    const speed = $('#ai-speed');
+    const applySpeed = () => {
+      this.aiMoveMs = Math.round(parseFloat(speed.value) * 1000);
+      $('#ai-speed-value').textContent = `${parseFloat(speed.value).toFixed(1)} s per move`;
+    };
+    speed.addEventListener('input', applySpeed);
+    applySpeed();
     $('#scrubber').addEventListener('input', (e) => this.viewAt(+e.target.value));
     $('#hist-first').addEventListener('click', () => this.viewAt(0));
     $('#hist-prev').addEventListener('click', () => this.viewAt(this.viewIdx - 1));
@@ -219,7 +227,7 @@ class Controller {
     if (this.seatTypes[this.game.toMove] !== 'ai' || !this.ai) return;
     this.busy = true;
     $('#hint').textContent = 'Computer is thinking…';
-    // let the UI paint before the (synchronous) search runs
+    // let the UI paint, then wait the configured move delay so humans can follow
     setTimeout(() => {
       try {
         const a = this.ai.chooseMove(this.game);
@@ -237,7 +245,7 @@ class Controller {
         this.busy = false;
         $('#hint').textContent = 'Computer error — see console.';
       }
-    }, 220);
+    }, Math.max(50, this.aiMoveMs));
   }
 }
 

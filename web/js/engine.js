@@ -89,7 +89,8 @@ export function initialBoard() {
 }
 
 // Synchronous growth step. Reads from `board`, returns {board, born, died} where
-// `born` is a list of {i, color} and `died` a list of cell indices. Faithful to
+// `born` is a list of {i, color} and `died` a list of {i, color} (the colour the
+// cell held just before it died). Faithful to
 // beak3.py trans(): survival 1..SURV_MAX, birth at exactly 4 neighbours with
 // majority / 2-1-1 plurality / 2-2 -> the absent third colour.
 export function growth(board) {
@@ -107,7 +108,7 @@ export function growth(board) {
     if (board[i] !== EMPTY) {
       if (!(n >= 1 && n <= SURV_MAX)) {
         next[i] = EMPTY;
-        died.push(i);
+        died.push({ i, color: board[i] });
       }
     } else if (n === 4) {
       // sort colours by descending count, ties broken by lower colour index
