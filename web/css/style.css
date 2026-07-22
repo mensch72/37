@@ -62,6 +62,9 @@ h2 { margin-top: 0; }
 .difficulty label { display: flex; flex-direction: column; font-weight: 600; font-size: 0.9rem; }
 .speed-value { font-weight: 400; font-size: 0.8rem; color: #6a675f; margin-top: 0.2rem; }
 #ai-speed { margin-top: 0.15rem; }
+.speed-control { background: #f7f6f1; border-radius: 8px; padding: 0.7rem; }
+.speed-control label { display: flex; flex-direction: column; font-weight: 600; font-size: 0.9rem; }
+#ai-speed-game { margin-top: 0.15rem; }
 
 .chip { width: 18px; height: 18px; display: inline-block; }
 .chip-0 { background: var(--red); clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
@@ -91,7 +94,7 @@ button.primary:hover { background: #444; }
 @media (max-width: 780px) { .game { grid-template-columns: 1fr; } }
 
 .board-wrap { position: relative; }
-#board { width: 100%; height: auto; display: block; background: radial-gradient(circle at 50% 40%, #444649, #2b2c2e); border-radius: 12px; }
+#board { width: 100%; height: auto; display: block; background: var(--bg); border-radius: 12px; }
 
 .turn-banner {
   text-align: center;
@@ -116,13 +119,16 @@ button.primary:hover { background: #444; }
 .side-marker { stroke-width: 3; stroke-linecap: round; }
 .born-ring { fill: none; stroke: #f2f0ea; stroke-width: 2.2; stroke-dasharray: 3 2; opacity: 0.95; }
 .died-mark { fill: none; stroke-width: 1.4; stroke-linecap: round; opacity: 0.9; }
+/* Growth markers fade to invisibility over the AI-speed-knob duration (set inline). */
+.marker-fade { animation-name: marker-fade; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes marker-fade { from { opacity: 1; } to { opacity: 0; } }
 
 /* side panel */
 .side > * { margin-bottom: 1rem; }
 .players { display: flex; flex-direction: column; gap: 0.5rem; }
 .player-row {
   display: grid;
-  grid-template-columns: 22px 1fr auto;
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 0.5rem;
   padding: 0.4rem 0.6rem;
@@ -134,7 +140,11 @@ button.primary:hover { background: #444; }
 .player-row.eliminated { opacity: 0.45; }
 .player-name { font-weight: 600; }
 .player-stats { font-size: 0.8rem; color: #555; }
+.player-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; }
 .player-totals { font-variant-numeric: tabular-nums; font-size: 0.85rem; text-align: right; }
+/* Beak contents shown as the player's own shape, one per stone held off-board. */
+.player-beak { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 3px; max-width: 96px; }
+.beak-chip { width: 11px; height: 11px; display: inline-block; }
 
 .growth-log, .history-controls { background: #f7f6f1; border-radius: 8px; padding: 0.7rem; }
 .growth-log h3, .history-controls h3 { margin: 0 0 0.4rem; font-size: 0.95rem; }
