@@ -90,13 +90,16 @@ reported directly from the training run that produced the shipped weights
 The app shows the board, each player's beak contents and total cell count, whose
 turn it is, and — importantly for a cellular-automaton game — what the growth step
 just did (cells that were **born** get a dashed ring, cells that **died** get a
-small cross in the colour of the fleck that died). The board is a dark "rock" grey
-with thin cell borders, and each player's pair of sides is marked by a coloured
-line just off the outer cells. Colours use the red / yellow / blue palette
-(colour-blind safe, avoids the red–green axis) and are distinguished by **shape** as
-well as hue, using only 60°-rotationally-symmetric marks (Red hexagon, Yellow star,
-Blue circle). A move-history scrubber lets you replay the game, and a move-speed
-slider paces the computer players so a human can follow the action.
+small cross in the colour of the fleck that died). When a player wins by
+connection, the UI also traces one concrete winning chain between that player's two
+sidelines. The board is a dark "rock" grey with thin cell borders, and each
+player's pair of sides is marked by a coloured line just off the outer cells.
+Colours use the red / yellow / blue palette (colour-blind safe, avoids the
+red–green axis) and are distinguished by **shape** as well as hue, using only
+60°-rotationally-symmetric marks (Red hexagon, Yellow star, Blue circle). A
+move-history scrubber lets you replay the game, undo the live position, or return
+to any replayed state, and a move-speed slider paces the computer players so a
+human can follow the action.
 
 Any combination of the three seats can be human or computer (local hot-seat plus
 computer opponents); there are no accounts, servers or online multiplayer.

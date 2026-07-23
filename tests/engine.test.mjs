@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-  CELLS, NBRS, N, EMPTY, growth, connected, pathDist, initialBoard, Game, rimAnchors, IDX,
+  CELLS, NBRS, N, EMPTY, growth, connected, pathDist, initialBoard, Game, rimAnchors, IDX, winningConnection,
 } from '../web/js/engine.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -70,6 +70,18 @@ check('ring start is a still life', JSON.stringify([...afterStart]) === JSON.str
 // 5. pathDist sanity: finite for all players at the start, and 0-cost is only
 // possible once a full own chain exists.
 check('pathDist finite at start', [0, 1, 2].every(p => Number.isFinite(pathDist(start, p))));
+
+// 5b. winningConnection returns a concrete side-to-side chain.
+{
+  const b = new Int8Array(N).fill(EMPTY);
+  const path = [
+    [3, 0, -3], [2, 0, -2], [1, 0, -1], [0, 0, 0], [-1, 0, 1], [-2, 0, 2], [-3, 0, 3],
+  ].map(([x, y, z]) => IDX.get(`${x},${y},${z}`));
+  path.forEach((i) => { b[i] = 0; });
+  const win = winningConnection(b, 0);
+  check('winningConnection finds a path', Array.isArray(win) && win.length === path.length);
+  check('winningConnection starts and ends on the right sides', win && CELLS[win[0]][0] === 3 && CELLS[win.at(-1)][0] === -3);
+}
 
 // 6. Game state machine: legal moves respect the beak economy and superko.
 {

@@ -117,6 +117,7 @@ button.primary:hover { background: #444; }
 .stone-2 { fill: var(--blue); }
 
 .side-marker { stroke-width: 3; stroke-linecap: round; }
+.winning-connection { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: 0.95; pointer-events: none; }
 .born-ring { fill: none; stroke: #f2f0ea; stroke-width: 2.2; stroke-dasharray: 3 2; opacity: 0.95; }
 .died-mark { fill: none; stroke-width: 1.4; stroke-linecap: round; opacity: 0.9; }
 /* Growth markers fade to invisibility over the AI-speed-knob duration (set inline). */
@@ -156,6 +157,8 @@ button.primary:hover { background: #444; }
 #scrubber { width: 100%; }
 .history-buttons { display: flex; align-items: center; gap: 0.3rem; margin-top: 0.4rem; }
 .history-buttons button { padding: 0.25rem 0.5rem; }
+.history-actions { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
+.history-actions button { flex: 1; padding: 0.35rem 0.5rem; }
 #hist-label { font-size: 0.85rem; margin: 0 0.3rem; }
 .hint { font-size: 0.8rem; color: #6a675f; min-height: 1.2em; margin: 0.4rem 0 0; }
 
