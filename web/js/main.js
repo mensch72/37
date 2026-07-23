@@ -222,7 +222,7 @@ class Controller {
   }
 
   syncHistoryButtons() {
-    $('#undo-btn').disabled = !this.game || !this.atLatest() || this.history.length <= 1 || this.busy;
+    $('#undo-btn').disabled = !this.game || !this.atLatest() || this.history.length < 2 || this.busy;
     $('#return-btn').disabled = !this.game || this.atLatest() || this.busy;
   }
 
@@ -247,7 +247,7 @@ class Controller {
   }
 
   undo() {
-    if (!this.game || !this.atLatest() || this.history.length <= 1 || this.busy) return;
+    if (!this.game || !this.atLatest() || this.history.length < 2 || this.busy) return;
     this.restoreHistory(this.history.length - 2);
   }
 
