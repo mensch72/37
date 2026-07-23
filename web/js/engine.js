@@ -127,24 +127,44 @@ export function growth(board) {
   return { board: next, born, died };
 }
 
-// Connection win test for player p: is there an unbroken chain of p's colour
-// joining p's two opposite sides?
-export function connected(board, p) {
+function findConnection(board, p) {
   const { plus, minus } = SIDES[p];
   const minusSet = new Set(minus);
   const stack = [];
   const seen = new Set();
+  const parent = new Int32Array(N).fill(-1);
   for (const i of plus) {
     if (board[i] === p) { stack.push(i); seen.add(i); }
   }
   while (stack.length) {
     const i = stack.pop();
-    if (minusSet.has(i)) return true;
+    if (minusSet.has(i)) {
+      const path = [];
+      for (let cur = i; cur !== -1; cur = parent[cur]) path.push(cur);
+      path.reverse();
+      return path;
+    }
     for (const j of NBRS[i]) {
-      if (board[j] === p && !seen.has(j)) { seen.add(j); stack.push(j); }
+      if (board[j] === p && !seen.has(j)) {
+        seen.add(j);
+        parent[j] = i;
+        stack.push(j);
+      }
     }
   }
-  return false;
+  return null;
+}
+
+// Connection win test for player p: is there an unbroken chain of p's colour
+// joining p's two opposite sides?
+export function connected(board, p) {
+  return findConnection(board, p) !== null;
+}
+
+// One concrete winning chain for player p, ordered from p's + side to p's - side.
+// Returns null when no such connection exists.
+export function winningConnection(board, p) {
+  return findConnection(board, p);
 }
 
 // Winner test after a growth step (mirrors hex3life.winner_after): if anyone is

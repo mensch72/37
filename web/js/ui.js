@@ -3,7 +3,7 @@
 // without relying on the red–green axis. Also renders the birth/death highlights
 // for the last growth step, the per-player panel and the turn banner.
 
-import { CELLS, N, EMPTY, R } from './engine.js';
+import { CELLS, EMPTY, R } from './engine.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const SIZE = 12; // hex radius in SVG units
@@ -37,6 +37,8 @@ export class Renderer {
   constructor(svg) {
     this.svg = svg;
     this.cellGroups = [];
+    this.sideSegments = Array.from({ length: 3 }, () => ({ plus: null, minus: null }));
+    this.winningPath = null;
     this.onCellClick = null;
     this._build();
   }
@@ -109,6 +111,9 @@ export class Renderer {
         line.setAttribute('y2', ends[1][1].toFixed(2));
         line.setAttribute('class', 'side-marker');
         line.style.stroke = colorVars[ax];
+        this.sideSegments[ax][s === R ? 'plus' : 'minus'] = {
+          x1: ends[0][0], y1: ends[0][1], x2: ends[1][0], y2: ends[1][1],
+        };
         this.svg.appendChild(line);
       }
     }
@@ -117,9 +122,16 @@ export class Renderer {
   // state: { board, beaks, playable:Set<int>, born:[{i,color}], died:[int],
   //          showHighlights:bool }
   render(state) {
-    const { board, playable, born = [], died = [], showHighlights = true, fadeMs = 0 } = state;
+    const {
+      board, playable, born = [], died = [], showHighlights = true, fadeMs = 0,
+      winningPath = null, winner = null,
+    } = state;
     const bornSet = new Set(born.map((b) => b.i));
     const diedMap = new Map(died.map((d) => [d.i, d.color]));
+    if (this.winningPath) {
+      this.winningPath.remove();
+      this.winningPath = null;
+    }
     this.cellGroups.forEach((cg, i) => {
       // clear previous stone and marks
       if (cg.stone) { cg.stone.remove(); cg.stone = null; }
@@ -151,6 +163,32 @@ export class Renderer {
         cg.g.appendChild(x); cg.marks.push(x);
       }
     });
+    if (winner !== null && winningPath && winningPath.length) {
+      this.winningPath = this._winningPolyline(winner, winningPath);
+      this.svg.appendChild(this.winningPath);
+    }
+  }
+
+  _winningPolyline(player, path) {
+    const project = (point, segment) => {
+      const dx = segment.x2 - segment.x1;
+      const dy = segment.y2 - segment.y1;
+      const denom = dx * dx + dy * dy || 1;
+      let t = ((point[0] - segment.x1) * dx + (point[1] - segment.y1) * dy) / denom;
+      t = Math.max(0, Math.min(1, t));
+      return [segment.x1 + dx * t, segment.y1 + dy * t];
+    };
+    const points = path.map((i) => cellCenter(CELLS[i]));
+    const plus = project(points[0], this.sideSegments[player].plus);
+    const minus = project(points[points.length - 1], this.sideSegments[player].minus);
+    const poly = document.createElementNS(SVGNS, 'polyline');
+    poly.setAttribute(
+      'points',
+      [plus, ...points, minus].map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' '),
+    );
+    poly.setAttribute('class', 'winning-connection');
+    poly.style.stroke = COLOR_VAR[player];
+    return poly;
   }
 
   // All stones use 60°-rotationally-symmetric shapes so no orientation is implied:

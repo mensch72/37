@@ -1,6 +1,6 @@
 // App controller for "37": wires the setup form, the human/computer game loop, the
 // growth-step highlights, the per-player panel and the move-history scrubber.
-import { Game, decodeMove, encodeMove, MOVE_DROP, EMPTY } from './engine.js';
+import { Game, decodeMove, encodeMove, MOVE_DROP, EMPTY, winningConnection } from './engine.js';
 import { Renderer, renderPlayers, COLOR_NAME } from './ui.js';
 import { Policy, LearnedPlayer } from './ai.js';
 
@@ -35,6 +35,7 @@ class Controller {
     this.game = null;
     this.ai = null;
     this.busy = false;
+    this.aiTimer = null;
     this.aiMoveMs = 2000; // computer move delay so humans can follow the play
     this._bindControls();
   }
@@ -61,9 +62,13 @@ class Controller {
     $('#hist-prev').addEventListener('click', () => this.viewAt(this.viewIdx - 1));
     $('#hist-next').addEventListener('click', () => this.viewAt(this.viewIdx + 1));
     $('#hist-last').addEventListener('click', () => this.viewAt(this.history.length - 1));
+    $('#undo-btn').addEventListener('click', () => this.undo());
+    $('#return-btn').addEventListener('click', () => this.returnToView());
   }
 
   reset() {
+    this.cancelPendingAI();
+    this.busy = false;
     $('#game').classList.add('hidden');
     $('#setup').classList.remove('hidden');
   }
@@ -76,6 +81,8 @@ class Controller {
     });
     const diff = $('#difficulty').value;
     const beak = DIFFICULTY[diff].beak.slice();
+    this.cancelPendingAI();
+    this.busy = false;
     this.game = new Game({ beakStart: beak, cap: Infinity });
 
     const depth = +$('#ai-strength').value;
@@ -107,6 +114,7 @@ class Controller {
   snapshot(message) {
     const g = this.game;
     this.history.push({
+      game: g.clone(),
       board: g.board.slice(),
       beaks: g.beaks.slice(),
       toMove: g.toMove,
@@ -158,10 +166,15 @@ class Controller {
       died: snap.died,
       showHighlights: true,
       fadeMs: this.aiMoveMs,
+      winningPath: snap.over && snap.endReason === 'connection' && snap.winner !== null
+        ? winningConnection(snap.board, snap.winner)
+        : null,
+      winner: snap.over && snap.endReason === 'connection' ? snap.winner : null,
     });
     renderPlayers($('#players'), this.gameForView(snap), this.seatTypes);
     this.drawBanner(snap);
     this.drawGrowthLog(snap);
+    this.syncHistoryButtons();
     $('#hint').textContent = playable && playable.size
       ? 'Click an empty cell to drop, or one of your cells to pick.'
       : (this.atLatest() ? '' : 'Viewing history — use ⏭ to return to the live game.');
@@ -208,6 +221,41 @@ class Controller {
     el.textContent = `${bornStr}; ${nd ? nd + ' died' : 'no deaths'}.`;
   }
 
+  syncHistoryButtons() {
+    $('#undo-btn').disabled = !this.game || !this.atLatest() || this.history.length < 2 || this.busy;
+    $('#return-btn').disabled = !this.game || this.atLatest() || this.busy;
+  }
+
+  cancelPendingAI() {
+    if (this.aiTimer !== null) {
+      clearTimeout(this.aiTimer);
+      this.aiTimer = null;
+    }
+  }
+
+  restoreHistory(idx) {
+    const snap = this.history[idx];
+    if (!snap) return;
+    this.cancelPendingAI();
+    this.busy = false;
+    this.game = snap.game.clone();
+    this.history = this.history.slice(0, idx + 1);
+    this.viewIdx = this.history.length - 1;
+    this.syncScrubber();
+    this.draw();
+    if (!this.game.over) this.maybeAIMove();
+  }
+
+  undo() {
+    if (!this.game || !this.atLatest() || this.history.length < 2 || this.busy) return;
+    this.restoreHistory(this.history.length - 2);
+  }
+
+  returnToView() {
+    if (!this.game || this.atLatest() || this.busy) return;
+    this.restoreHistory(this.viewIdx);
+  }
+
   onCellClick(i) {
     if (this.busy || !this.game || this.game.over || !this.atLatest()) return;
     if (this.seatTypes[this.game.toMove] !== 'human') return;
@@ -234,9 +282,11 @@ class Controller {
     if (!this.game || this.game.over) return;
     if (this.seatTypes[this.game.toMove] !== 'ai' || !this.ai) return;
     this.busy = true;
+    this.syncHistoryButtons();
     $('#hint').textContent = 'Computer is thinking…';
     // let the UI paint, then wait the configured move delay so humans can follow
-    setTimeout(() => {
+    this.aiTimer = setTimeout(() => {
+      this.aiTimer = null;
       try {
         const a = this.ai.chooseMove(this.game);
         if (a === null) {
@@ -244,6 +294,7 @@ class Controller {
           // force a re-evaluation by applying nothing — instead advance via a
           // no-op snapshot. This path is extremely rare (superko zugzwang).
           this.busy = false;
+          this.draw();
           return;
         }
         this.busy = false;
@@ -251,6 +302,7 @@ class Controller {
       } catch (err) {
         console.error(err);
         this.busy = false;
+        this.draw();
         $('#hint').textContent = 'Computer error — see console.';
       }
     }, Math.max(50, this.aiMoveMs));
