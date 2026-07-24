@@ -172,7 +172,9 @@ button.primary:hover { background: #444; }
 .player-name { font-weight: 600; }
 .player-stats { font-size: 0.8rem; color: #555; }
 .player-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; }
-.player-totals { font-variant-numeric: tabular-nums; font-size: 0.85rem; text-align: right; }
+.player-totals { font-variant-numeric: tabular-nums; font-size: 0.95rem; font-weight: 600; text-align: right; }
+.player-totals.below-seven { color: #b23b2e; }
+.player-totals.below-seven::after { content: ' ⚠'; font-weight: 700; }
 /* Beak contents shown as the player's own shape, one per stone held off-board. */
 .player-beak { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 3px; max-width: 96px; }
 .beak-chip { width: 11px; height: 11px; display: inline-block; }

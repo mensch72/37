@@ -301,7 +301,14 @@ export function renderPlayers(container, game, seatTypes) {
 
     const tot = document.createElement('div');
     tot.className = 'player-totals';
-    tot.textContent = `${game.totalCells(p)} total`;
+    const total = game.totalCells(p);
+    tot.textContent = `${total} total`;
+    // A player below 7 total cannot form a winning chain until they breed back
+    // up — the real content of an attrition attack (issue #12). Flag it.
+    if (!game.isEliminated(p) && total < 7) {
+      tot.classList.add('below-seven');
+      tot.title = 'Below 7 — cannot connect until this bird breeds back up.';
+    }
     right.appendChild(tot);
 
     // One shape per stone currently held in the beak, in this player's shape.

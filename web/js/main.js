@@ -1,6 +1,6 @@
 // App controller for "37": wires the setup form, the human/computer game loop, the
 // growth-step highlights, the per-player panel and the move-history scrubber.
-import { Game, decodeMove, encodeMove, MOVE_DROP, EMPTY, winningConnection } from './engine.js';
+import { Game, decodeMove, encodeMove, MOVE_DROP, EMPTY, winningConnection, VARIANTS, DEFAULT_VARIANT } from './engine.js';
 import { Renderer, renderPlayers, COLOR_NAME } from './ui.js';
 import { Policy, LearnedPlayer } from './ai.js';
 
@@ -11,18 +11,28 @@ const $ = (sel) => document.querySelector(sel);
 // game's "unlimited beak" rule; we use a large finite value rather than Infinity
 // because the learned AI's features normalise the beak count (dividing by 8), so a
 // non-finite value would poison inference. 37 cells make 37 an unreachable cap.
+//
+// `cap` is the beak capacity. Standard settings use 6 — one above the largest
+// holding ever seen in ordinary play — which closes the centre-pump / hoarding
+// exploits (issue #12) at no cost. Novice keeps the old unlimited beak.
 const UNLIMITED_BEAK = 37;
 const DIFFICULTY = {
-  novice: { beak: [UNLIMITED_BEAK, UNLIMITED_BEAK, UNLIMITED_BEAK] },
-  advanced: { beak: [4, 4, 4] },
-  expert: { beak: [2, 2, 2] },
-  handicap: { beak: [4, 3, 2] },
+  novice: { beak: [UNLIMITED_BEAK, UNLIMITED_BEAK, UNLIMITED_BEAK], cap: UNLIMITED_BEAK },
+  advanced: { beak: [4, 4, 4], cap: 6 },
+  expert: { beak: [2, 2, 2], cap: 6 },
+  handicap: { beak: [4, 3, 2], cap: 6 },
 };
 
-let policyPromise = null;
-function getPolicy() {
-  if (!policyPromise) policyPromise = Policy.load('weights/policy.json');
-  return policyPromise;
+// The learned policy is trained per rule variant (calm / volatile); load the
+// matching weight file and fall back to the shared policy.json if it is absent.
+const policyPromises = new Map();
+function getPolicy(variant) {
+  if (!policyPromises.has(variant)) {
+    const url = `weights/policy-${variant}.json`;
+    const p = Policy.load(url).catch(() => Policy.load('weights/policy.json'));
+    policyPromises.set(variant, p);
+  }
+  return policyPromises.get(variant);
 }
 
 class Controller {
@@ -81,18 +91,21 @@ class Controller {
       this.seatTypes[seat] = el.querySelector('[data-role="type"]').value;
     });
     const diff = $('#difficulty').value;
-    const beak = DIFFICULTY[diff].beak.slice();
+    const { beak, cap } = DIFFICULTY[diff];
+    const variantSel = $('#rule-variant');
+    const variant = variantSel && VARIANTS[variantSel.value] ? variantSel.value : DEFAULT_VARIANT;
+    const survMax = VARIANTS[variant];
     this.cancelPendingAI();
     this.busy = false;
-    this.game = new Game({ beakStart: beak, cap: Infinity });
+    this.game = new Game({ beakStart: beak.slice(), cap, survMax });
 
     const depth = +$('#ai-strength').value;
     const anyAI = this.seatTypes.includes('ai');
     if (anyAI) {
       $('#ai-status').textContent = 'Loading learned policy…';
       try {
-        const policy = await getPolicy();
-        this.ai = new LearnedPlayer(policy, { depth, topK: 8 });
+        const policy = await getPolicy(variant);
+        this.ai = new LearnedPlayer(policy, { depth, topK: 8, survMax });
         $('#ai-status').textContent = '';
       } catch (err) {
         this.ai = null;
@@ -125,6 +138,7 @@ class Controller {
       over: g.over,
       winner: g.winner,
       endReason: g.endReason,
+      alive: g.alive.slice(),
       message,
     });
     this.viewIdx = this.history.length - 1;
@@ -196,7 +210,11 @@ class Controller {
       beaks: snap.beaks,
       cellCount: (p) => { let n = 0; for (let i = 0; i < snap.board.length; i++) if (snap.board[i] === p) n++; return n; },
       totalCells: (p) => { let n = 0; for (let i = 0; i < snap.board.length; i++) if (snap.board[i] === p) n++; return n + snap.beaks[p]; },
-      isEliminated: (p) => snap.beaks[p] === 0 && (() => { for (let i = 0; i < snap.board.length; i++) if (snap.board[i] === p) return false; return true; })(),
+      // A seat is shown "out" when the engine has marked it not alive (natural
+      // elimination or a fully blocked side, issue #12); fall back to the
+      // beak+board test for snapshots taken before the flag existed.
+      isEliminated: (p) => (snap.alive ? !snap.alive[p]
+        : snap.beaks[p] === 0 && (() => { for (let i = 0; i < snap.board.length; i++) if (snap.board[i] === p) return false; return true; })()),
     };
   }
 

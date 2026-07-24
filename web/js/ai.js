@@ -7,7 +7,7 @@
 // (2N logits over canonical drop/pick actions) and a value head (a scalar in
 // (-1,1), the expected outcome for the acting/self player).
 
-import { N, EMPTY, decodeMove, encodeMove, MOVE_DROP, winnerAfter, growth, rimAnchors } from './engine.js';
+import { N, EMPTY, decodeMove, encodeMove, MOVE_DROP, winnerAfter, growth, rimAnchors, DEFAULT_SURV_MAX } from './engine.js';
 import { computeFeatures, canonicalMask, canonicalActionToReal, FEAT_LEN } from './features.js';
 
 // ---- linear algebra on flat Float32Array weights ----
@@ -95,11 +95,14 @@ export class Policy {
 // player pick their value-maximising reply (a max-n backup restricted to the top-K
 // policy moves to bound cost). Move ordering / priors come from the policy head.
 export class LearnedPlayer {
-  constructor(policy, { depth = 1, topK = 8, temperature = 0.0, rimDefense = 0.08 } = {}) {
+  constructor(policy, { depth = 1, topK = 8, temperature = 0.0, rimDefense = 0.08, survMax = DEFAULT_SURV_MAX } = {}) {
     this.policy = policy;
     this.depth = depth;
     this.topK = topK;
     this.temperature = temperature;
+    // Survival rule the value/search rollouts must use (5 = calm / S1-5 default,
+    // 4 = volatile / S1-4). Overwritten from the live game in chooseMove().
+    this.survMax = survMax;
     // Weight of the rim-defence nudge (per own rim side anchored by a stable pair).
     // Small enough never to override a real win/loss but enough to break ties in
     // favour of not being blocked out of one's own sides (issue #7).
@@ -140,7 +143,7 @@ export class LearnedPlayer {
       const nk = beaks.slice();
       if (rm.type === MOVE_DROP) { nb[rm.cell] = player; nk[player]--; }
       else { nb[rm.cell] = EMPTY; nk[player]++; }
-      const g = growth(nb);
+      const g = growth(nb, this.survMax);
       const resBoard = g.board;
       // decisive?
       const win = winnerAfter(resBoard, player);
@@ -163,6 +166,7 @@ export class LearnedPlayer {
 
   chooseMove(game) {
     const p = game.toMove;
+    this.survMax = game.survMax; // rollouts must match the live rule variant
     const legal = game.legalMoves(p); // real encoded, superko-filtered
     if (legal.length === 0) return null;
     const board = game.board, beaks = game.beaks;
@@ -175,7 +179,7 @@ export class LearnedPlayer {
       const nk = beaks.slice();
       if (rm.type === MOVE_DROP) { nb[rm.cell] = p; nk[p]--; }
       else { nb[rm.cell] = EMPTY; nk[p]++; }
-      const g = growth(nb);
+      const g = growth(nb, this.survMax);
       const resBoard = g.board;
       const win = winnerAfter(resBoard, p);
       let val;

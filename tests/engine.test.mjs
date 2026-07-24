@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
   CELLS, NBRS, N, EMPTY, growth, connected, pathDist, initialBoard, Game, rimAnchors, IDX, winningConnection,
+  SURV_MAX_CALM, SURV_MAX_VOLATILE, DEFAULT_SURV_MAX,
 } from '../web/js/engine.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -28,13 +29,19 @@ check('cell count is 37', N === 37);
 check('CELLS order matches reference', JSON.stringify(CELLS.map(c => [...c])) === JSON.stringify(data.meta.cells));
 check('NBRS matches reference', JSON.stringify(NBRS.map(nb => [...nb])) === JSON.stringify(data.meta.nbrs));
 
-// 2. The growth step matches the Python reference on every generated position.
+// 2. The growth step matches the Python reference on every generated position,
+//    for BOTH survival rules (each vector carries its own smax: 4 = volatile,
+//    5 = calm / the new default).
 let mismatches = 0;
 let birthsSeen = 0;
 let twoTwoSeen = 0;
+let calmSeen = 0;
+let calmDiffSeen = 0; // positions where calm and volatile actually differ
 for (const v of data.vectors) {
   const board = Int8Array.from(v.in);
-  const { board: out, born } = growth(board);
+  const smax = v.smax ?? SURV_MAX_VOLATILE;
+  if (smax === SURV_MAX_CALM) calmSeen++;
+  const { board: out, born } = growth(board, smax);
   birthsSeen += born.length;
   // count 2-2 births in this vector (empty cell, exactly two colours with 2 each)
   for (const b of born) {
@@ -46,11 +53,20 @@ for (const v of data.vectors) {
   for (let i = 0; i < N; i++) {
     if (out[i] !== v.out[i]) { mismatches++; break; }
   }
+  // sanity: on the same board the two rules must sometimes disagree (calm spares
+  // exactly the cells with 5 living neighbours that volatile kills).
+  if (smax === SURV_MAX_CALM) {
+    const volatileOut = growth(board, SURV_MAX_VOLATILE).board;
+    for (let i = 0; i < N; i++) { if (out[i] !== volatileOut[i]) { calmDiffSeen++; break; } }
+  }
 }
 check(`growth matches reference on ${data.vectors.length} positions`, mismatches === 0);
 check('reference vectors actually contain births', birthsSeen > 0);
 check('reference vectors actually exercise the 2-2 birth rule', twoTwoSeen > 0);
-console.log(`  (checked ${data.vectors.length} positions, ${birthsSeen} births incl. ${twoTwoSeen} of the 2-2 -> third-colour kind)`);
+check('reference vectors exercise the calm (S1-5) rule', calmSeen > 0);
+check('calm and volatile rules differ on some positions', calmDiffSeen > 0);
+check('DEFAULT_SURV_MAX is the calm rule (5)', DEFAULT_SURV_MAX === SURV_MAX_CALM);
+console.log(`  (checked ${data.vectors.length} positions, ${birthsSeen} births incl. ${twoTwoSeen} of the 2-2 -> third-colour kind; ${calmDiffSeen} where calm != volatile)`);
 
 // 3. The canonical ring start is a still life (growth leaves it unchanged).
 const start = initialBoard();
@@ -177,6 +193,44 @@ check('pathDist finite at start', [0, 1, 2].every(p => Number.isFinite(pathDist(
     b[idx(3, -3, 0)] = 1; b[idx(3, -2, -1)] = 1;
     check('rimAnchors: only own colour anchors a side', rimAnchors(b, 0) === 0);
   }
+}
+
+// 10. Survival variants: an interior cell with exactly 5 living neighbours dies
+//     under the volatile rule (S1-4) but survives under the calm rule (S1-5).
+{
+  const idx = (x, y, z) => IDX.get(`${x},${y},${z}`);
+  const centre = idx(0, 0, 0);
+  const ring = NBRS[centre];
+  check('centre has six neighbours', ring.length === 6);
+  const b = new Int8Array(N).fill(EMPTY);
+  b[centre] = 0;
+  for (let k = 0; k < 5; k++) b[ring[k]] = 1; // 5 of 6 neighbours alive
+  check('calm (S1-5) spares a 5-neighbour interior cell', growth(b, SURV_MAX_CALM).board[centre] === 0);
+  check('volatile (S1-4) kills a 5-neighbour interior cell', growth(b, SURV_MAX_VOLATILE).board[centre] === EMPTY);
+  // a completely surrounded cell dies under both rules
+  const b2 = b.slice();
+  b2[ring[5]] = 1; // all six neighbours alive now
+  check('a fully surrounded cell dies under calm', growth(b2, SURV_MAX_CALM).board[centre] === EMPTY);
+  check('a fully surrounded cell dies under volatile', growth(b2, SURV_MAX_VOLATILE).board[centre] === EMPTY);
+}
+
+// 11. Blocked-side elimination (issue #12): a player whose whole side is occupied
+//     by other colours is declared out.
+{
+  const idx = (x, y, z) => IDX.get(`${x},${y},${z}`);
+  const g = new Game({ beakStart: [4, 4, 4] });
+  // player 0 owns axis x; the plus side is x == +3 (four cells). Wall it with the
+  // other two colours, leaving one empty to confirm the "no empties" requirement.
+  const plusSide = [[3, -3, 0], [3, -2, -1], [3, -1, -2], [3, 0, -3]].map(([x, y, z]) => idx(x, y, z));
+  plusSide.forEach((i, k) => { g.board[i] = 1 + (k % 2); }); // colours 1 and 2
+  check('a fully walled own side blocks the player', g.isBlocked(0) === true);
+  g.board[plusSide[0]] = EMPTY; // one gap -> not fully occupied
+  check('a side with a gap does not block the player', g.isBlocked(0) === false);
+  g.board[plusSide[0]] = 0; // an own cell on the side -> not blocked
+  check('an own cell on the side means not blocked', g.isBlocked(0) === false);
+  // a side occupied by a mix that includes at least one own cell is fine
+  const other = new Game({ beakStart: [4, 4, 4] });
+  check('fresh game blocks nobody at the start', ![0, 1, 2].some((p) => other.isBlocked(p)));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

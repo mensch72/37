@@ -21,20 +21,27 @@ by self-play — plus the training pipeline and the design exploration it grew f
 The board is a boulder, the colours are strains of lichen, and the players are
 birds that pick up and drop flecks of lichen. On your turn you either **drop** a
 fleck from your beak onto an empty cell or **pick** one of your own cells back into
-your beak; then the whole boulder grows at once:
+your beak; then the whole boulder grows at once. Birth is the same in every rule
+variant — an empty cell with **exactly 4** neighbours is **born**, its colour the
+majority of its four parents, the plurality in a 2-1-1, or — in a 2-2 tie — **the
+absent third colour** — but there are two selectable **survival** rules:
 
-- a living cell with **0** neighbours dies of isolation;
-- a living cell with **1–4** neighbours survives;
-- a living cell with **5–6** neighbours dies of crowding;
-- an empty cell with **exactly 4** neighbours is **born**. Its colour is the
-  majority of its four parents, the plurality in a 2-1-1, or — in a 2-2 tie — **the
-  absent third colour**.
+- **calm (S1-5, the default):** a living cell dies only if it is **isolated** (0
+  neighbours) or **completely surrounded** (all 6 neighbours alive); it survives
+  with 1–5 neighbours. Only interior cells can ever be surrounded, since rim cells
+  have at most 4 neighbours. This roughly halves the number of cell changes between
+  your turns, so the board is easier to follow.
+- **volatile (S1-4):** a living cell also dies of **crowding** at **5 or 6**
+  neighbours (survives with 1–4). Faster, more churn, the harder option.
 
 Newborn flecks come from the box and dead flecks return to it; your beak only ever
 exchanges flecks with the board (the *beak economy*). Your beak starts with **N**
-flecks, which is the whole difficulty dial. A move may not recreate a whole
+flecks, which is the whole difficulty dial, and is **capped at 6** so no bird can
+hoard or run a "centre pump" indefinitely. A move may not recreate a whole
 position that has already occurred (superko); a player with no cells on the board
-and an empty beak is eliminated.
+and an empty beak is eliminated, and so is a player **all four of whose home-side
+cells are occupied by other colours** — that side is permanently blocked, so they
+can no longer connect and are declared out (their cells stay as terrain).
 
 ### Difficulty dial
 
@@ -48,6 +55,10 @@ possible (`7 − N − 2`):
 | expert | 2 | 4 | 3 |
 | handicap | 4 / 3 / 2 per player | 6 / 5 / 4 | 1 / 2 / 3 |
 
+Except at *novice* (whose beak is unlimited by design), the beak is capped at 6 —
+one above the largest holding ever seen in ordinary play — which costs nothing
+normally but blocks indefinite hoarding and the centre pump.
+
 The full canonical rules and the reasoning behind every choice are in
 [`sandbox/README.md`](sandbox/README.md) and
 [`sandbox/results/FINDINGS.md`](sandbox/results/FINDINGS.md).
@@ -55,10 +66,17 @@ The full canonical rules and the reasoning behind every choice are in
 ## The computer player is learned, not scripted
 
 The opponent is a small neural **policy/value network trained by self-play**, run
-client-side as plain numeric code over exported weights
-([`web/weights/policy.json`](web/weights)). It is *not* a hand-written heuristic.
-The scripted 1-ply `greedy` heuristic from the design session is kept only as a
-training/evaluation baseline (the "floor on competence" from FINDINGS).
+client-side as plain numeric code over exported weights (in
+[`web/weights/`](web/weights)). It is *not* a hand-written heuristic. Because a
+policy trained on one ruleset does **not** transfer to another, a **separate weight
+file is trained per rule variant** — `policy-calm.json` and `policy-volatile.json`
+— and the app loads the one matching the selected rule, falling back to the legacy
+`policy.json` if a variant file is missing. The scripted 1-ply `greedy` heuristic
+from the design session is kept only as a training/evaluation baseline (the "floor
+on competence" from FINDINGS), alongside three scripted strategies discovered in
+human play — an **endpoint-claimer**, a **rim-arc blocker** and a **centre
+pumper** — which are now part of the training opponent pool and the strength
+report.
 
 The training pipeline in [`training/`](training) implements the improvements that
 [FINDINGS section 7](sandbox/results/FINDINGS.md) predicted would beat the original
@@ -115,11 +133,15 @@ web/                 the static web app (this is what GitHub Pages serves)
   js/ai.js           policy/value inference + shallow value-head search
   js/ui.js           SVG board renderer + player panel
   js/main.js         app controller (game loop, history, growth log)
-  weights/policy.json  exported trained weights (client-side inference)
+  weights/             exported trained weights (client-side inference)
+    policy-calm.json     for the calm (S1-5, default) rule
+    policy-volatile.json for the volatile (S1-4) rule
+    policy.json          legacy single-rule weights (fallback)
 training/            self-play training pipeline
-  hexlife37.py       environment + features + baselines + network
+  hexlife37.py       environment + features + baselines + scripted strategies + network
   train_ppo.py       PPO + GAE + population-based self-play + export + eval
-  training_report.json  strength trajectory of the shipped run
+  evaluate.py        per-strategy strength table
+  training_report-*.json  strength trajectory per rule variant
 tests/               unit tests
   gen_reference.py   generates reference vectors from sandbox/code/beak3.py
   engine.test.mjs    JS growth step vs the Python reference (+ invariants)
@@ -147,12 +169,17 @@ unchanged in the browser.
 
 ## Training and evaluation
 
-To reproduce (or improve) the shipped policy:
+To reproduce (or improve) the shipped policies, train one per rule variant (the
+`--variant` flag selects the survival rule and the matching default output paths):
 
 ```bash
 pip install numpy
-python3 training/train_ppo.py --iters 170 --games-per-iter 24 \
-    --out web/weights/policy.json --report training/training_report.json
+# calm (S1-5, the default) and volatile (S1-4), advanced beak of 4, cap 6:
+python3 training/train_ppo.py --variant calm     # -> web/weights/policy-calm.json
+python3 training/train_ppo.py --variant volatile # -> web/weights/policy-volatile.json
+# then the per-strategy strength table for each:
+python3 training/evaluate.py --variant calm
+python3 training/evaluate.py --variant volatile
 ```
 
 The script prints, and records to the report, the win share of decided games (the
@@ -162,6 +189,11 @@ uniform baseline is 33%) for the current policy in each seat against:
 - two **greedy** (1-ply heuristic) opponents — both for the raw policy and for the
   shipped configuration with the 1-ply value search,
 - two frozen copies of the **first checkpoint**, to show progress over self-play.
+
+`evaluate.py` additionally reports each configuration (raw / 1-ply / 2-ply search)
+against every scripted strategy — greedy, endpoint-claimer, rim-arc blocker and
+centre pumper — since a policy that cannot beat the endpoint-claimer is not ready
+to ship.
 
 See [`training/RESULTS.md`](training/RESULTS.md) for the numbers from the run that
 produced the committed weights, and an honest discussion of what the learned player
