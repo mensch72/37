@@ -36,6 +36,7 @@ class Controller {
     this.ai = null;
     this.busy = false;
     this.aiTimer = null;
+    this.animTimers = [];
     this.aiMoveMs = 2000; // computer move delay so humans can follow the play
     this._bindControls();
   }
@@ -171,13 +172,20 @@ class Controller {
         : null,
       winner: snap.over && snap.endReason === 'connection' ? snap.winner : null,
     });
+    this.drawPanels(snap);
+    $('#hint').textContent = playable && playable.size
+      ? 'Click an empty cell to drop, or one of your cells to pick.'
+      : (this.atLatest() ? '' : 'Viewing history — use ⏭ to return to the live game.');
+  }
+
+  // The non-board parts of a draw: the per-player panel, the turn banner, the
+  // growth log and the history buttons. Shared by draw() and the live-move
+  // animation so the resting state is correct without a full static redraw.
+  drawPanels(snap) {
     renderPlayers($('#players'), this.gameForView(snap), this.seatTypes);
     this.drawBanner(snap);
     this.drawGrowthLog(snap);
     this.syncHistoryButtons();
-    $('#hint').textContent = playable && playable.size
-      ? 'Click an empty cell to drop, or one of your cells to pick.'
-      : (this.atLatest() ? '' : 'Viewing history — use ⏭ to return to the live game.');
   }
 
   // Build a lightweight game-like object for the panel from a snapshot.
@@ -231,6 +239,8 @@ class Controller {
       clearTimeout(this.aiTimer);
       this.aiTimer = null;
     }
+    this.animTimers.forEach((t) => clearTimeout(t));
+    this.animTimers = [];
   }
 
   restoreHistory(idx) {
@@ -274,8 +284,78 @@ class Controller {
     this.game.applyMove(a);
     const verb = type === MOVE_DROP ? 'dropped on' : 'picked from';
     this.snapshot(`${COLOR_NAME[mover]} ${verb} cell ${cell}.`);
-    this.viewAt(this.history.length - 1);
-    if (!this.game.over) this.maybeAIMove();
+    // Animate the move as two paced phases — the fleck flying to/from the beak,
+    // then the automaton growth — so the growth no longer happens instantly with
+    // the placement. When the animation settles, hand off to the next player.
+    this.busy = true;
+    this.syncHistoryButtons();
+    this.animateMove({ mover, type, cell }, () => {
+      this.animTimers = [];
+      if (this.game.over) {
+        this.busy = false;
+        this.drawPanels(this.history[this.viewIdx]);
+        $('#hint').textContent = '';
+        return;
+      }
+      if (this.seatTypes[this.game.toMove] === 'ai' && this.ai) {
+        this.maybeAIMove();
+      } else {
+        this.busy = false;
+        this.draw();
+      }
+    });
+  }
+
+  // Play the two-phase animation for the move that produced the latest snapshot.
+  // Phase 1 shows the placement (the dropped/picked fleck flying between the
+  // beak and the board); phase 2 shows the boulder growth (born cells grow from
+  // their centre, dying cells shrink toward it). Both phases are paced by the
+  // move-duration knob; `done` runs once the growth phase has settled.
+  animateMove(move, done) {
+    const snap = this.history[this.history.length - 1];
+    const { fly, grow } = this._phaseDurations();
+    // Board right after the placement but before the automaton grew: undo the
+    // births (back to empty) and revive the cells that the growth killed.
+    const preBoard = snap.board.slice();
+    for (const b of snap.born) preBoard[b.i] = EMPTY;
+    for (const d of snap.died) preBoard[d.i] = d.color;
+
+    this.renderer.render({
+      board: preBoard, beaks: snap.beaks, playable: null,
+      born: [], died: [], showHighlights: false,
+      anim: { durMs: fly, fly: { cell: move.cell, type: move.type, color: move.mover }, grow: null, shrink: null },
+    });
+    this.drawPanels(snap);
+    $('#hint').textContent = '';
+
+    const growSet = new Set(snap.born.map((b) => b.i));
+    const shrinkMap = new Map(snap.died.map((d) => [d.i, d.color]));
+    const hasGrowth = growSet.size > 0 || shrinkMap.size > 0;
+    const isWin = snap.over && snap.endReason === 'connection' && snap.winner !== null;
+
+    const t1 = setTimeout(() => {
+      this.renderer.render({
+        board: snap.board, beaks: snap.beaks, playable: null,
+        born: [], died: [], showHighlights: false,
+        winningPath: isWin ? winningConnection(snap.board, snap.winner) : null,
+        winner: isWin ? snap.winner : null,
+        anim: hasGrowth ? { durMs: grow, fly: null, grow: growSet, shrink: shrinkMap } : null,
+      });
+      const t2 = setTimeout(done, grow);
+      this.animTimers.push(t2);
+    }, fly);
+    this.animTimers.push(t1);
+  }
+
+  // Split the "seconds per move" knob into a short think pause plus the fleck
+  // fly and the growth reveal, so a whole turn takes roughly the set duration.
+  _phaseDurations() {
+    const d = Math.max(0, this.aiMoveMs);
+    return {
+      think: Math.max(60, Math.round(d * 0.2)),
+      fly: Math.max(140, Math.round(d * 0.4)),
+      grow: Math.max(140, Math.round(d * 0.4)),
+    };
   }
 
   maybeAIMove() {
@@ -284,7 +364,7 @@ class Controller {
     this.busy = true;
     this.syncHistoryButtons();
     $('#hint').textContent = 'Computer is thinking…';
-    // let the UI paint, then wait the configured move delay so humans can follow
+    // let the UI paint, then wait a short think pause before the animated move
     this.aiTimer = setTimeout(() => {
       this.aiTimer = null;
       try {
@@ -297,7 +377,6 @@ class Controller {
           this.draw();
           return;
         }
-        this.busy = false;
         this.applyAndContinue(a);
       } catch (err) {
         console.error(err);
@@ -305,7 +384,7 @@ class Controller {
         this.draw();
         $('#hint').textContent = 'Computer error — see console.';
       }
-    }, Math.max(50, this.aiMoveMs));
+    }, Math.max(50, this._phaseDurations().think));
   }
 }
 
