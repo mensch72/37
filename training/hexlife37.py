@@ -15,7 +15,12 @@ import numpy as np
 
 R = 3
 EMPTY = -1
-SURV_MAX = 4
+SURV_MAX_VOLATILE = 4  # S1-4 ("volatile")
+SURV_MAX_CALM = 5      # S1-5 ("calm", the default)
+SURV_MAX = SURV_MAX_VOLATILE  # legacy alias (the reference rule)
+DEFAULT_SURV_MAX = SURV_MAX_CALM
+VARIANTS = {"calm": SURV_MAX_CALM, "volatile": SURV_MAX_VOLATILE}
+DEFAULT_CAP = 6
 DIRS = [(1, -1, 0), (1, 0, -1), (0, 1, -1), (-1, 1, 0), (-1, 0, 1), (0, -1, 1)]
 
 CELLS = [(x, y, z) for x in range(-R, R + 1) for y in range(-R, R + 1)
@@ -55,7 +60,7 @@ def initial_board():
     return board
 
 
-def growth(board):
+def growth(board, surv_max=DEFAULT_SURV_MAX):
     new = board[:]
     births = []
     for i in range(N):
@@ -66,7 +71,7 @@ def growth(board):
                 cnt[v] += 1
         n = cnt[0] + cnt[1] + cnt[2]
         if board[i] != EMPTY:
-            if not (1 <= n <= SURV_MAX):
+            if not (1 <= n <= surv_max):
                 new[i] = EMPTY
         elif n == 4:
             s = sorted(range(3), key=lambda q: -cnt[q])
@@ -213,10 +218,12 @@ class Env:
     seat order, skipping eliminated seats.
     """
 
-    def __init__(self, beak_start=(4, 4, 4), cap=10 ** 9, max_plies=200):
+    def __init__(self, beak_start=(4, 4, 4), cap=DEFAULT_CAP, max_plies=200,
+                 surv_max=DEFAULT_SURV_MAX):
         self.beak_start = tuple(beak_start)
         self.cap = cap
         self.max_plies = max_plies
+        self.surv_max = surv_max
         self.reset()
 
     def reset(self):
@@ -243,6 +250,15 @@ class Env:
     def is_eliminated(self, p):
         return self.beaks[p] == 0 and self.cell_count(p) == 0
 
+    def is_blocked(self, p):
+        # A player whose whole side is occupied by other colours can never connect
+        # (issue #12). A side counts as blocked only when every cell on it is
+        # occupied and none is p's colour.
+        for side in SIDES[p]:
+            if all(self.board[i] != EMPTY and self.board[i] != p for i in side):
+                return True
+        return False
+
     def _simulate(self, p, a):
         board = self.board[:]
         beaks = self.beaks[:]
@@ -253,7 +269,7 @@ class Env:
         else:
             board[real] = EMPTY
             beaks[p] += 1
-        return growth(board), beaks
+        return growth(board, self.surv_max), beaks
 
     def _next_live(self, board, beaks, frm):
         count = [0, 0, 0]
@@ -293,7 +309,9 @@ class Env:
         guard = 0
         while not self.done and guard < 6:
             guard += 1
-            if self.is_eliminated(self.to_move):
+            if not self.alive[self.to_move]:
+                pass  # already out (blocked-side or a prior elimination)
+            elif self.is_eliminated(self.to_move):
                 self.alive[self.to_move] = False
             elif len(self.legal_actions()) == 0:
                 self.alive[self.to_move] = False
@@ -318,10 +336,11 @@ class Env:
         else:
             self.board[real] = EMPTY
             self.beaks[p] += 1
-        self.board = growth(self.board)
+        self.board = growth(self.board, self.surv_max)
         self.ply += 1
         for q in range(3):
-            self.alive[q] = not self.is_eliminated(q)
+            if self.alive[q] and (self.is_eliminated(q) or self.is_blocked(q)):
+                self.alive[q] = False
         w = winner_after(self.board, p)
         if w is not None:
             self.done = True
@@ -401,6 +420,120 @@ def greedy_action(env, rng):
         if best_s is None or s > best_s:
             best_s, best_a = s, a
     return best_a
+
+
+# ---- scripted strategy opponents found in human play (issue #12 section 2) ----
+# All return a canonical action from env.legal_actions(); each isolates one of the
+# strategies the old economy-blind training never saw, so the learned policy is
+# forced to face them during training and is scored against them at evaluation.
+
+RIM = [i for i, c in enumerate(CELLS) if max(abs(c[0]), abs(c[1]), abs(c[2])) == R]
+RIM_SET = set(RIM)
+
+
+def _own_ring_cells(p):
+    cells = [(1, 0, -1), (-1, 0, 1)]
+    for _ in range(p):
+        cells = [ROT(c) for c in cells]
+    return [IDX[c] for c in cells]
+
+
+def _rim_path_dist_real(board, p):
+    """Path distance for p that may only traverse EMPTY cells lying on the rim, so
+    the resulting chain is routed along the boundary (an arc). Own cells anywhere
+    cost 0; enemies block."""
+    plus, minus = SIDES[p]
+    minus_set = set(minus)
+    dist = [10 ** 9] * N
+    pq = []
+    for i in plus:
+        if board[i] == p:
+            dist[i] = 0
+            heapq.heappush(pq, (0, i))
+        elif board[i] == EMPTY and i in RIM_SET:
+            dist[i] = 1
+            heapq.heappush(pq, (1, i))
+    while pq:
+        d, i = heapq.heappop(pq)
+        if d > dist[i]:
+            continue
+        if i in minus_set:
+            return d
+        for j in NBRS[i]:
+            if board[j] == p:
+                nd = d
+            elif board[j] == EMPTY and j in RIM_SET:
+                nd = d + 1
+            else:
+                continue
+            if nd < dist[j]:
+                dist[j] = nd
+                heapq.heappush(pq, (nd, j))
+    return 10 ** 9
+
+
+def endpoint_action(env, rng):
+    """Claim one cell on each of your own two sides first (a permanent foothold on
+    the winning chain — the complete counter to being walled out), then play the
+    path-distance heuristic."""
+    p = env.to_move
+    legal = env.legal_actions()
+    need = [set(side) for side in SIDES[p]
+            if not any(env.board[i] == p for i in side)]
+    if need:
+        for a in legal:
+            if a < N:
+                real = int(PERM[p][a])
+                if any(real in s for s in need):
+                    return a
+    return greedy_action(env, rng)
+
+
+def rim_arc_action(env, rng):
+    """Route a minimum-length winning chain along the rim, covering one side of
+    each opponent (a win-and-double-block arc), while still blocking opponents."""
+    p = env.to_move
+    best_a, best_s = None, None
+    for a in env.legal_actions():
+        board, beaks = env._simulate(p, a)
+        w = winner_after(board, p)
+        if w == p:
+            return a
+        if w is not None:
+            s = -1e8
+        else:
+            my = _rim_path_dist_real(board, p)
+            opp = sorted(_path_dist_real(board, q) for q in range(3) if q != p)
+            s = -3 * my + opp[0] + 0.3 * opp[1] + 0.01 * rng.random()
+        if best_s is None or s > best_s:
+            best_s, best_a = s, a
+    return best_a
+
+
+def pump_action(env, rng):
+    """Centre pump: pick up both own ring cells so the centre (2 + 2 of the other
+    colours) births your colour, then harvest the reborn centre cell every turn.
+    A finite beak cap limits the pump to a couple of extra cells (issue #12)."""
+    p = env.to_move
+    legal = set(env.legal_actions())
+    centre = IDX[(0, 0, 0)]
+    a_pick_centre = N + int(INV_PERM[p][centre])
+    if env.board[centre] == p and a_pick_centre in legal:
+        return a_pick_centre
+    for cell in _own_ring_cells(p):
+        a_pick = N + int(INV_PERM[p][cell])
+        if env.board[cell] == p and a_pick in legal:
+            return a_pick
+    return greedy_action(env, rng)
+
+
+# Registry of scripted opponents used by training and evaluation.
+SCRIPTED = {
+    "greedy": greedy_action,       # plain path-distance agent
+    "endpoint": endpoint_action,   # endpoint-claimer
+    "rim_arc": rim_arc_action,     # rim-arc blocker
+    "pump": pump_action,           # centre pumper
+}
 
 
 # ---- network: shared tanh trunk, policy + value heads ----

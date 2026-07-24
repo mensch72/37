@@ -26,7 +26,7 @@ import time
 import numpy as np
 
 import hexlife37 as H
-from hexlife37 import Env, Net, N, greedy_action
+from hexlife37 import Env, Net, N, greedy_action, SCRIPTED, VARIANTS, DEFAULT_CAP
 
 
 def gae(values, reward, gamma, lam):
@@ -52,17 +52,18 @@ def sample_action(net, x, mask, rng):
     return a, logp, v
 
 
-def collect(cur, pool, rng, games, beak_start, gamma, lam):
+def collect(cur, pool, rng, games, beak_start, gamma, lam, cap, surv_max, scripted):
     """Play `games` self-play games; return a batch of the current policy's own
     decisions with GAE advantages. Seats not controlled by `cur` are played by a
-    frozen opponent sampled from `pool` (or greedy/current)."""
+    frozen opponent sampled from `pool`, or one of the scripted strategy agents
+    (path-distance, endpoint-claimer, rim-arc blocker, centre pumper)."""
     batch = collections.defaultdict(list)
     stats = {"decided": 0, "plies": []}
     for gi in range(games):
-        env = Env(beak_start=beak_start)
+        env = Env(beak_start=beak_start, cap=cap, surv_max=surv_max)
         # Assign seats. Always keep at least one 'cur' seat for data. Opponents
-        # are sampled from the population pool (frozen nets), plus occasional
-        # greedy and current, for population-based self-play.
+        # are sampled from the population pool (frozen nets) and the scripted
+        # strategy agents, for population-based self-play against real tactics.
         seat_kind = []
         for s in range(3):
             r = rng.random()
@@ -71,7 +72,7 @@ def collect(cur, pool, rng, games, beak_start, gamma, lam):
             elif r < 0.8:
                 seat_kind.append(("net", pool[int(rng.integers(len(pool)))]))
             else:
-                seat_kind.append("greedy")
+                seat_kind.append(("script", scripted[int(rng.integers(len(scripted)))]))
         if "cur" not in seat_kind:
             seat_kind[int(rng.integers(3))] = "cur"
 
@@ -87,8 +88,8 @@ def collect(cur, pool, rng, games, beak_start, gamma, lam):
             if kind == "cur":
                 a, logp, v = sample_action(cur, x, mask, rng)
                 traj[p].append([x, mask, a, logp, v])
-            elif kind == "greedy":
-                a = greedy_action(env, rng)
+            elif isinstance(kind, tuple) and kind[0] == "script":
+                a = SCRIPTED[kind[1]](env, rng)
             else:  # frozen net opponent
                 a, _, _ = sample_action(kind[1], x, mask, rng)
             x, r, done = env.step(a)
@@ -190,14 +191,16 @@ def ppo_update(net, batch, epochs, minibatch, clip, lr, ent_coef, vf_coef):
             net.update(grads, lr)
 
 
-def evaluate(net, opp, ngames, beak_start=(4, 4, 4), value_search=False, opp_net=None):
+def evaluate(net, opp, ngames, beak_start=(4, 4, 4), value_search=False, opp_net=None,
+             cap=DEFAULT_CAP, surv_max=H.DEFAULT_SURV_MAX):
     """Learned policy (argmax, optionally with 1-ply value search) in each seat vs
-    two opponents. Returns win share of decided games (uniform baseline 1/3)."""
+    two opponents. `opp` is 'random', 'net', or a scripted-strategy name (greedy,
+    endpoint, rim_arc, pump). Returns win share of decided games (baseline 1/3)."""
     rng = random.Random(777)
     wins = dec = 0
     for g in range(ngames):
         seat = g % 3
-        env = Env(beak_start=beak_start)
+        env = Env(beak_start=beak_start, cap=cap, surv_max=surv_max)
         while not env.done:
             p = env.player
             mask = env.legal_mask()
@@ -205,14 +208,13 @@ def evaluate(net, opp, ngames, beak_start=(4, 4, 4), value_search=False, opp_net
                 break
             if p == seat:
                 a = choose_policy_action(net, env, value_search)
-            elif opp == "greedy":
-                a = greedy_action(env, rng)
             elif opp == "random":
                 acts = env.legal_actions()
                 a = acts[rng.randint(0, len(acts) - 1)]
+            elif opp in SCRIPTED:
+                a = SCRIPTED[opp](env, rng)
             else:  # net opponent
-                oa = choose_policy_action(opp_net, env, False)
-                a = oa
+                a = choose_policy_action(opp_net, env, False)
             env.step(a)
         w = getattr(env, "winner", None)
         if w is not None:
@@ -264,9 +266,22 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--eval-every", type=int, default=20)
     ap.add_argument("--eval-games", type=int, default=60)
-    ap.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "..", "web", "weights", "policy.json"))
-    ap.add_argument("--report", default=os.path.join(os.path.dirname(__file__), "training_report.json"))
+    ap.add_argument("--variant", choices=sorted(VARIANTS), default="calm",
+                    help="survival rule: calm (S1-5, default) or volatile (S1-4)")
+    ap.add_argument("--cap", type=int, default=DEFAULT_CAP, help="beak capacity")
+    ap.add_argument("--beak", type=int, default=4, help="starting beak per seat (the N dial)")
+    ap.add_argument("--out", default=None)
+    ap.add_argument("--report", default=None)
     args = ap.parse_args()
+
+    surv_max = VARIANTS[args.variant]
+    beak_start = (args.beak, args.beak, args.beak)
+    scripted = list(SCRIPTED)  # names of the scripted strategy opponents
+    here = os.path.dirname(__file__)
+    if args.out is None:
+        args.out = os.path.join(here, "..", "web", "weights", f"policy-{args.variant}.json")
+    if args.report is None:
+        args.report = os.path.join(here, f"training_report-{args.variant}.json")
 
     np.random.seed(args.seed)
     rng = np.random.default_rng(args.seed)
@@ -278,7 +293,8 @@ def main():
 
     for it in range(1, args.iters + 1):
         batch, stats = collect(net, pool, rng, args.games_per_iter,
-                               (4, 4, 4), args.gamma, args.lam)
+                               beak_start, args.gamma, args.lam,
+                               args.cap, surv_max, scripted)
         ppo_update(net, batch, args.epochs, args.minibatch, args.clip,
                    args.lr, args.ent_coef, args.vf_coef)
         if it % args.pool_every == 0:
@@ -290,10 +306,13 @@ def main():
             if first_ckpt is None:
                 first_ckpt = snap
         if it % args.eval_every == 0 or it == args.iters:
-            wr = evaluate(net, "random", args.eval_games)
-            wg = evaluate(net, "greedy", args.eval_games)
-            wgs = evaluate(net, "greedy", args.eval_games, value_search=True)
-            wc = evaluate(net, "net", args.eval_games, opp_net=first_ckpt) if first_ckpt else float("nan")
+            ev = lambda opp, **kw: evaluate(net, opp, args.eval_games,
+                                            beak_start=beak_start, cap=args.cap,
+                                            surv_max=surv_max, **kw)
+            wr = ev("random")
+            wg = ev("greedy")
+            wgs = ev("greedy", value_search=True)
+            wc = ev("net", opp_net=first_ckpt) if first_ckpt else float("nan")
             dec = 100 * stats["decided"] / args.games_per_iter
             pl = np.mean(stats["plies"])
             rec = dict(iter=it, decided=dec, plies=float(pl), vs_random=wr,

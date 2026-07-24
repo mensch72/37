@@ -1,0 +1,86 @@
+{
+  "args": {
+    "iters": 120,
+    "games_per_iter": 24,
+    "lr": 0.0006,
+    "gamma": 0.99,
+    "lam": 0.95,
+    "clip": 0.2,
+    "epochs": 3,
+    "minibatch": 256,
+    "ent_coef": 0.01,
+    "vf_coef": 0.5,
+    "pool_every": 15,
+    "pool_max": 6,
+    "seed": 0,
+    "eval_every": 20,
+    "eval_games": 60,
+    "variant": "calm",
+    "cap": 6,
+    "beak": 4,
+    "out": "../web/weights/policy-calm.json",
+    "report": "training_report-calm.json"
+  },
+  "history": [
+    {
+      "iter": 20,
+      "decided": 100.0,
+      "plies": 71.79166666666667,
+      "vs_random": 0.9491525423728814,
+      "vs_greedy": 0.1016949152542373,
+      "vs_greedy_search": 0.4666666666666667,
+      "vs_first_ckpt": 0.0,
+      "secs": 93.23797297477722
+    },
+    {
+      "iter": 40,
+      "decided": 87.5,
+      "plies": 98.75,
+      "vs_random": 0.9333333333333333,
+      "vs_greedy": 0.10526315789473684,
+      "vs_greedy_search": 0.4666666666666667,
+      "vs_first_ckpt": 0.5,
+      "secs": 176.9931662082672
+    },
+    {
+      "iter": 60,
+      "decided": 62.5,
+      "plies": 119.20833333333333,
+      "vs_random": 0.9,
+      "vs_greedy": 0.1896551724137931,
+      "vs_greedy_search": 0.6333333333333333,
+      "vs_first_ckpt": 1.0,
+      "secs": 275.8557360172272
+    },
+    {
+      "iter": 80,
+      "decided": 62.5,
+      "plies": 132.83333333333334,
+      "vs_random": 0.8666666666666667,
+      "vs_greedy": 0.12280701754385964,
+      "vs_greedy_search": 0.48333333333333334,
+      "vs_first_ckpt": 1.0,
+      "secs": 378.27641892433167
+    },
+    {
+      "iter": 100,
+      "decided": 62.5,
+      "plies": 140.70833333333334,
+      "vs_random": 0.95,
+      "vs_greedy": 0.15789473684210525,
+      "vs_greedy_search": 0.5084745762711864,
+      "vs_first_ckpt": 1.0,
+      "secs": 484.47396183013916
+    },
+    {
+      "iter": 120,
+      "decided": 91.66666666666667,
+      "plies": 88.125,
+      "vs_random": 0.9666666666666667,
+      "vs_greedy": 0.2,
+      "vs_greedy_search": 0.5254237288135594,
+      "vs_first_ckpt": 1.0,
+      "secs": 590.61110496521
+    }
+  ]
+}

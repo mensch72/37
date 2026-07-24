@@ -1,0 +1,112 @@
+{
+  "weights": "../web/weights/policy-calm.json",
+  "variant": "calm",
+  "cap": 6,
+  "beak": 4,
+  "baseline_pct": 33.3,
+  "opponents": [
+    "random",
+    "greedy",
+    "endpoint",
+    "rim_arc",
+    "pump"
+  ],
+  "rows": [
+    {
+      "mode": "raw",
+      "label": "raw policy (argmax)",
+      "games": 300,
+      "vs": {
+        "random": {
+          "win_pct": 95.0,
+          "decided": 298,
+          "games": 300
+        },
+        "greedy": {
+          "win_pct": 24.6,
+          "decided": 281,
+          "games": 300
+        },
+        "endpoint": {
+          "win_pct": 100.0,
+          "decided": 300,
+          "games": 300
+        },
+        "rim_arc": {
+          "win_pct": 44.4,
+          "decided": 288,
+          "games": 300
+        },
+        "pump": {
+          "win_pct": 12.4,
+          "decided": 290,
+          "games": 300
+        }
+      }
+    },
+    {
+      "mode": "search1",
+      "label": "policy + 1-ply value search (shipped 'Standard')",
+      "games": 300,
+      "vs": {
+        "random": {
+          "win_pct": 94.0,
+          "decided": 299,
+          "games": 300
+        },
+        "greedy": {
+          "win_pct": 42.1,
+          "decided": 292,
+          "games": 300
+        },
+        "endpoint": {
+          "win_pct": 100.0,
+          "decided": 300,
+          "games": 300
+        },
+        "rim_arc": {
+          "win_pct": 27.7,
+          "decided": 296,
+          "games": 300
+        },
+        "pump": {
+          "win_pct": 45.7,
+          "decided": 293,
+          "games": 300
+        }
+      }
+    },
+    {
+      "mode": "search2",
+      "label": "policy + 2-ply value search ('Strong')",
+      "games": 120,
+      "vs": {
+        "random": {
+          "win_pct": 91.6,
+          "decided": 119,
+          "games": 120
+        },
+        "greedy": {
+          "win_pct": 39.2,
+          "decided": 120,
+          "games": 120
+        },
+        "endpoint": {
+          "win_pct": 100.0,
+          "decided": 120,
+          "games": 120
+        },
+        "rim_arc": {
+          "win_pct": 39.5,
+          "decided": 119,
+          "games": 120
+        },
+        "pump": {
+          "win_pct": 40.7,
+          "decided": 118,
+          "games": 120
+        }
+      }
+    }
+  ]
+}
