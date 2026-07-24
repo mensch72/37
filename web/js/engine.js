@@ -7,13 +7,37 @@
 //
 // Board: hexagon of radius R = 3 = 37 cells in cube coordinates, up to 6
 // neighbours per cell. Rules: drop/pick move, then a synchronous growth step
-// (birth at exactly 4 neighbours, survival with 1..SURV_MAX, death at 0 and at
-// >SURV_MAX), the beak economy (births come from the box, deaths return to it),
+// (birth at exactly 4 neighbours, survival with 1..survMax, death at 0 and at
+// >survMax), the beak economy (births come from the box, deaths return to it),
 // connection win, superko repetition and elimination.
+//
+// Two survival variants are selectable (issue #12):
+//   "calm"     — S1-5: a cell dies only if isolated (0 living neighbours) or
+//                completely surrounded (all six neighbours alive). The default.
+//   "volatile" — S1-4: the older rule, death at 5 or more neighbours. Harder and
+//                more churny (about twice the cell changes between your turns).
+// The birth rule is identical in both: birth at exactly 4 neighbours, majority /
+// 2-1-1 plurality / 2-2 -> the absent third colour.
 
 export const R = 3;
 export const EMPTY = -1;
-export const SURV_MAX = 4; // survival 1..4, i.e. B4 / S1-4
+export const SURV_MAX_VOLATILE = 4; // survival 1..4, i.e. B4 / S1-4 ("volatile")
+export const SURV_MAX_CALM = 5;     // survival 1..5, i.e. B4 / S1-5 ("calm")
+export const SURV_MAX = SURV_MAX_VOLATILE; // legacy alias (the reference rule)
+export const DEFAULT_SURV_MAX = SURV_MAX_CALM; // calm is the new default
+
+// Named rule variants for the UI / game setup.
+export const VARIANTS = {
+  calm: SURV_MAX_CALM,
+  volatile: SURV_MAX_VOLATILE,
+};
+export const DEFAULT_VARIANT = 'calm';
+
+// Beak capacity: the largest number of flecks a beak may hold. A finite cap of 6
+// (one above the largest holding ever seen in ordinary play) closes the "centre
+// pump" and hoarding holes (issue #12) at no cost to normal play. Infinity keeps
+// the old "unlimited beak" rule (used by the novice setting).
+export const DEFAULT_CAP = 6;
 
 // Six cube-coordinate directions (same order as hex3life.py DIRS).
 const DIRS = [
@@ -91,9 +115,10 @@ export function initialBoard() {
 // Synchronous growth step. Reads from `board`, returns {board, born, died} where
 // `born` is a list of {i, color} and `died` a list of {i, color} (the colour the
 // cell held just before it died). Faithful to
-// beak3.py trans(): survival 1..SURV_MAX, birth at exactly 4 neighbours with
-// majority / 2-1-1 plurality / 2-2 -> the absent third colour.
-export function growth(board) {
+// beak3.py trans(): survival 1..survMax, birth at exactly 4 neighbours with
+// majority / 2-1-1 plurality / 2-2 -> the absent third colour. `survMax` selects
+// the rule variant (5 = calm / S1-5 default, 4 = volatile / S1-4).
+export function growth(board, survMax = DEFAULT_SURV_MAX) {
   const next = board.slice();
   const born = [];
   const died = [];
@@ -106,7 +131,7 @@ export function growth(board) {
     }
     const n = cnt[0] + cnt[1] + cnt[2];
     if (board[i] !== EMPTY) {
-      if (!(n >= 1 && n <= SURV_MAX)) {
+      if (!(n >= 1 && n <= survMax)) {
         next[i] = EMPTY;
         died.push({ i, color: board[i] });
       }
@@ -279,9 +304,11 @@ export function positionKey(board, beaks, player) {
 
 export class Game {
   // beakStart: array of 3 starting beak counts (the difficulty dial N per seat).
-  // cap: beak capacity (Infinity for the standard "unlimited beak" rule).
-  constructor({ beakStart = [4, 4, 4], cap = Infinity } = {}) {
+  // cap: beak capacity (default 6; Infinity for the "unlimited beak" rule).
+  // survMax: survival rule (5 = calm / S1-5 default, 4 = volatile / S1-4).
+  constructor({ beakStart = [4, 4, 4], cap = DEFAULT_CAP, survMax = DEFAULT_SURV_MAX } = {}) {
     this.cap = cap;
+    this.survMax = survMax;
     this.board = initialBoard();
     this.beaks = beakStart.slice();
     this.toMove = 0;
@@ -300,6 +327,7 @@ export class Game {
   clone() {
     const g = Object.create(Game.prototype);
     g.cap = this.cap;
+    g.survMax = this.survMax;
     g.board = this.board.slice();
     g.beaks = this.beaks.slice();
     g.toMove = this.toMove;
@@ -328,6 +356,24 @@ export class Game {
     return this.beaks[p] === 0 && this.cellCount(p) === 0;
   }
 
+  // Blocked-side elimination (issue #12 section 4): if either of player p's two
+  // own sides is entirely occupied by other colours, p can no longer place or
+  // grow an own cell on that side and so can never connect. Rim cells almost
+  // never vacate under the survival rules, so the position is already decided;
+  // declaring p out immediately avoids dozens of plies of play by someone who
+  // cannot win. A side counts as blocked only when every cell on it is occupied
+  // (no empties) and none of them is p's colour.
+  isBlocked(p) {
+    for (const side of [SIDES[p].plus, SIDES[p].minus]) {
+      let allOthers = true;
+      for (const i of side) {
+        if (this.board[i] === EMPTY || this.board[i] === p) { allOthers = false; break; }
+      }
+      if (allOthers) return true;
+    }
+    return false;
+  }
+
   // Legal moves for a player, honouring the beak economy AND the superko rule
   // (a move that recreates a previously seen position is illegal).
   legalMoves(p = this.toMove) {
@@ -351,7 +397,7 @@ export class Game {
     const beaks = this.beaks.slice();
     if (type === MOVE_DROP) { board[cell] = p; beaks[p]--; }
     else { board[cell] = EMPTY; beaks[p]++; }
-    const g = growth(board);
+    const g = growth(board, this.survMax);
     return { board: g.board, beaks, born: g.born, died: g.died };
   }
 
@@ -383,14 +429,18 @@ export class Game {
     const p = this.toMove;
     if (type === MOVE_DROP) { this.board[cell] = p; this.beaks[p]--; }
     else { this.board[cell] = EMPTY; this.beaks[p]++; }
-    const g = growth(this.board);
+    const g = growth(this.board, this.survMax);
     this.board = g.board;
     this.lastBorn = g.born;
     this.lastDied = g.died;
     this.ply++;
 
-    // update elimination status
-    for (let q = 0; q < 3; q++) this.alive[q] = !this.isEliminated(q);
+    // update elimination status: a player is out if naturally eliminated (empty
+    // beak and no cells) or has a fully blocked side (issue #12). Once out, they
+    // stay out — their cells remain on the board as inert terrain.
+    for (let q = 0; q < 3; q++) {
+      if (this.alive[q] && (this.isEliminated(q) || this.isBlocked(q))) this.alive[q] = false;
+    }
 
     const w = winnerAfter(this.board, p);
     if (w !== null) {
@@ -412,12 +462,16 @@ export class Game {
     return this;
   }
 
-  // If the player to move is eliminated OR has no legal move, they are out;
-  // advance until a player with a legal move is found or the game ends.
+  // If the player to move is out (already marked dead, naturally eliminated, or
+  // with no legal move), advance until a player who can act is found or the game
+  // ends. The persistent `alive` flag also carries blocked-side elimination
+  // (issue #12), so a blocked player who still owns terrain is skipped here.
   _skipDeadPlayers() {
     let guard = 0;
     while (!this.over && guard++ < 6) {
-      if (this.isEliminated(this.toMove)) {
+      if (!this.alive[this.toMove]) {
+        // already out (blocked-side or a prior elimination) — just advance
+      } else if (this.isEliminated(this.toMove)) {
         this.alive[this.toMove] = false;
       } else if (this.legalMoves(this.toMove).length === 0) {
         // no legal move -> eliminated (superko/zugzwang backstop)

@@ -68,14 +68,20 @@ def make_vectors(n, seed=12345):
         cells = [ROT(c) for c in cells]
     fixed = [board0]
 
+    # Emit every position under both survival rules: smax=4 (volatile / S1-4) and
+    # smax=5 (calm / S1-5, the new default). The Node test replays each vector
+    # through growth(board, smax) and asserts identical output for both.
+    smaxes = (4, 5)
     for board in fixed:
-        res = trans(board[:], 4)
-        out.append({"in": board_to_list(board), "out": board_to_list(res)})
+        for smax in smaxes:
+            res = trans(board[:], smax)
+            out.append({"in": board_to_list(board), "smax": smax, "out": board_to_list(res)})
 
     for _ in range(n):
         board = random_board(rng)
-        res = trans(board[:], 4)
-        out.append({"in": board_to_list(board), "out": board_to_list(res)})
+        for smax in smaxes:
+            res = trans(board[:], smax)
+            out.append({"in": board_to_list(board), "smax": smax, "out": board_to_list(res)})
     return out
 
 

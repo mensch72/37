@@ -40,6 +40,12 @@
       </div>
 
       <div class="difficulty">
+        <label>Growth rule:
+          <select id="rule-variant">
+            <option value="calm" selected>Calm (S1-5) — die only when isolated or fully surrounded</option>
+            <option value="volatile">Volatile (S1-4) — also die when crowded (5+ neighbours)</option>
+          </select>
+        </label>
         <label>Beak setting (N):
           <select id="difficulty">
             <option value="novice">Novice — unlimited beak (0 births to win)</option>
@@ -124,20 +130,47 @@
           own cells back up into your beak. Then, all at once, the whole boulder grows:</p>
           <ul>
             <li>a cell with no living neighbours withers away in isolation;</li>
-            <li>a cell with one to four neighbours holds fast and survives;</li>
-            <li>a cell with five or six neighbours is smothered and dies of crowding;</li>
+            <li>a cell that is <em>completely surrounded</em> — all six neighbours alive —
+            is smothered and dies of crowding;</li>
+            <li>any other living cell (one to five neighbours) holds fast and survives;</li>
             <li>an empty cell with exactly four neighbours springs to life. Its colour is
             the majority among its four parents, the plurality in a 2-1-1 split, or — when
             two colours tie 2-2 — <em>the third, absent colour</em>.</li>
           </ul>
+          <p>This is the <strong>calm</strong> rule (S1-5), the default: only interior cells
+          can ever be crowded, so the board changes slowly and is easy to follow. The
+          <strong>volatile</strong> rule (S1-4) is harsher — a cell also dies at five
+          neighbours — and roughly doubles the churn between your turns; pick it from the
+          New game screen if you want a more turbulent game.</p>
           <p>Fresh flecks arrive from the box and dead ones return to it; your beak only
           ever trades flecks with the boulder. It starts holding <em>N</em> flecks, and
-          that single number is the whole difficulty dial. You may never recreate a
-          position that has already appeared, and a bird with no lichen on the rock and an
-          empty beak is out of the game.</p>
+          that single number is the whole difficulty dial. A beak holds at most six flecks.
+          You may never recreate a position that has already appeared, and a bird with no
+          lichen on the rock and an empty beak is out of the game. A bird whose whole side
+          is walled off by other colours can no longer connect and is also declared out,
+          its lichen left behind as terrain.</p>
           <p>Every colour is told apart by hue <em>and</em> by shape (Red hexagon, Yellow
           star, Blue circle), so the board stays clear without leaning on the red–green
           axis.</p>
+          <h3>Opening principle &amp; strategy</h3>
+          <ul>
+            <li><strong>Claim your two sides early.</strong> Rim cells never die of crowding
+            (an edge cell has only four neighbours, a corner three), so a fleck you place on
+            each of your own two sides is a <em>permanent</em> foothold — and it sits on your
+            shortest winning chain anyway. Securing both takes only a handful of moves and is
+            the complete counter to being walled out.</li>
+            <li><strong>The rim is a wall.</strong> Occupying all of an opponent's side
+            permanently blocks that colour; a minimum-length winning chain can even be routed
+            along the rim to cover one side of each opponent at once. Watch your endpoints.</li>
+            <li><strong>Mind the 2-2 rule.</strong> An empty cell flanked by two of one enemy
+            colour and two of another gives birth to <em>your</em> colour. A defensive wall of
+            two colours that strictly <em>alternates</em> repairs itself for free against the
+            third player; a wall built in solid blocks instead hands the attacker a free cell
+            at the junction.</li>
+            <li><strong>Keep your total at 7 or more.</strong> A shortest chain is seven cells,
+            so a bird below seven cannot win until it breeds back up — that is the real content
+            of an attrition attack.</li>
+          </ul>
         </div>
       </details>
     </section>
