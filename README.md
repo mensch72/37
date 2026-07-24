@@ -19,7 +19,9 @@ by self-play — plus the training pipeline and the design exploration it grew f
 ## The game
 
 The board is a boulder, the colours are strains of lichen, and the players are
-birds that pick up and drop flecks of lichen. On your turn you either **drop** a
+birds that pick up and drop flecks of lichen. Each bird has a favourite colour and
+a strange aesthetic craving: to see its own colour run in an unbroken ribbon from
+one side of the rock to the opposite side. On your turn you either **drop** a
 fleck from your beak onto an empty cell or **pick** one of your own cells back into
 your beak; then the whole boulder grows at once. Birth is the same in every rule
 variant — an empty cell with **exactly 4** neighbours is **born**, its colour the
@@ -41,7 +43,9 @@ hoard or run a "centre pump" indefinitely. A move may not recreate a whole
 position that has already occurred (superko); a player with no cells on the board
 and an empty beak is eliminated, and so is a player **all four of whose home-side
 cells are occupied by other colours** — that side is permanently blocked, so they
-can no longer connect and are declared out (their cells stay as terrain).
+can no longer connect and are declared out (their cells stay as terrain). Once two
+players are out, the last one still in the game wins by **elimination**, even if
+its own colour never links its two sides.
 
 ### Difficulty dial
 
