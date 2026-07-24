@@ -117,12 +117,42 @@ button.primary:hover { background: #444; }
 .stone-2 { fill: var(--blue); }
 
 .side-marker { stroke-width: 3; stroke-linecap: round; }
-.winning-connection { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: 0.95; pointer-events: none; }
+.winning-connection {
+  fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
+  opacity: 0; pointer-events: none;
+  /* fade in first, then pulse a glow a touch lighter than the stones */
+  animation:
+    win-appear var(--win-fade, 600ms) ease-out forwards,
+    win-pulse 1.4s ease-in-out var(--win-fade, 600ms) infinite;
+}
+@keyframes win-appear { from { opacity: 0; } to { opacity: 0.95; } }
+@keyframes win-pulse {
+  0%, 100% { filter: drop-shadow(0 0 1px var(--win-glow, #fff)); }
+  50% { filter: drop-shadow(0 0 5px var(--win-glow, #fff)) drop-shadow(0 0 9px var(--win-glow, #fff)); }
+}
 .born-ring { fill: none; stroke: #f2f0ea; stroke-width: 2.2; stroke-dasharray: 3 2; opacity: 0.95; }
 .died-mark { fill: none; stroke-width: 1.4; stroke-linecap: round; opacity: 0.9; }
 /* Growth markers fade to invisibility over the AI-speed-knob duration (set inline). */
 .marker-fade { animation-name: marker-fade; animation-timing-function: linear; animation-fill-mode: forwards; }
 @keyframes marker-fade { from { opacity: 1; } to { opacity: 0; } }
+
+/* Live-move animations (durations set inline via CSS custom properties).
+   Scale animations pivot on the element's own centre. */
+.grow-in, .shrink-out { transform-box: fill-box; transform-origin: center; }
+.grow-in { animation: grow-in var(--grow-dur, 400ms) ease-out; }
+@keyframes grow-in { from { transform: scale(0.01); } to { transform: scale(1); } }
+.shrink-out { animation: shrink-out var(--grow-dur, 400ms) ease-in forwards; }
+@keyframes shrink-out { from { transform: scale(1); } to { transform: scale(0.01); } }
+.fly-in { animation: fly-in var(--fly-dur, 400ms) ease-out; }
+@keyframes fly-in {
+  from { transform: translate(var(--fx, 0), var(--fy, 0)); opacity: 0.2; }
+  to { transform: translate(0, 0); opacity: 1; }
+}
+.fly-out { animation: fly-out var(--fly-dur, 400ms) ease-in forwards; }
+@keyframes fly-out {
+  from { transform: translate(0, 0); opacity: 1; }
+  to { transform: translate(var(--fx, 0), var(--fy, 0)); opacity: 0.2; }
+}
 
 /* side panel */
 .side > * { margin-bottom: 1rem; }
@@ -164,6 +194,3 @@ button.primary:hover { background: #444; }
 
 .rules-body ul { margin: 0.4rem 0; padding-left: 1.2rem; }
 .rules summary { cursor: pointer; font-weight: 600; }
-
-.winner-glow { animation: pulse 1.2s ease-in-out infinite; }
-@keyframes pulse { 0%,100% { filter: none; } 50% { filter: drop-shadow(0 0 6px currentColor); } }

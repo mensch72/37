@@ -3,7 +3,7 @@
 // without relying on the red–green axis. Also renders the birth/death highlights
 // for the last growth step, the per-player panel and the turn banner.
 
-import { CELLS, EMPTY, R } from './engine.js';
+import { CELLS, EMPTY, R, MOVE_DROP } from './engine.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const SIZE = 12; // hex radius in SVG units
@@ -31,6 +31,7 @@ function hexPointsR(cx, cy, size) {
 
 const COLOR_CLASS = ['stone-0', 'stone-1', 'stone-2'];
 const COLOR_VAR = ['var(--red)', 'var(--yellow)', 'var(--blue)'];
+const COLOR_SOFT = ['var(--red-soft)', 'var(--yellow-soft)', 'var(--blue-soft)'];
 const COLOR_NAME = ['Red', 'Yellow', 'Blue'];
 
 export class Renderer {
@@ -38,6 +39,9 @@ export class Renderer {
     this.svg = svg;
     this.cellGroups = [];
     this.sideSegments = Array.from({ length: 3 }, () => ({ plus: null, minus: null }));
+    // A point just off the board on each player's home side, used as the
+    // visual "beak" that flecks fly to/from when dropped or picked.
+    this.beakAnchors = [null, null, null];
     this.winningPath = null;
     this.onCellClick = null;
     this._build();
@@ -114,17 +118,28 @@ export class Renderer {
         this.sideSegments[ax][s === R ? 'plus' : 'minus'] = {
           x1: ends[0][0], y1: ends[0][1], x2: ends[1][0], y2: ends[1][1],
         };
+        // Beak anchor: the +R side's midpoint pushed further outward, standing in
+        // for the bird's beak that exchanges flecks with the board.
+        if (s === R) {
+          const mx = (ends[0][0] + ends[1][0]) / 2, my = (ends[0][1] + ends[1][1]) / 2;
+          this.beakAnchors[ax] = [mx + nx * SIZE * 2.2, my + ny * SIZE * 2.2];
+        }
         this.svg.appendChild(line);
       }
     }
   }
 
   // state: { board, beaks, playable:Set<int>, born:[{i,color}], died:[int],
-  //          showHighlights:bool }
+  //          showHighlights:bool, anim }
+  // `anim` (optional) drives the live-move animations and is one of the phases
+  // produced by the controller:
+  //   { durMs, fly:{cell,type,color}|null,
+  //     grow:Set<int>|null,            // born cells to scale up from centre
+  //     shrink:Map<int,color>|null }   // dying cells to scale down (ghost stones)
   render(state) {
     const {
       board, playable, born = [], died = [], showHighlights = true, fadeMs = 0,
-      winningPath = null, winner = null,
+      winningPath = null, winner = null, anim = null,
     } = state;
     const bornSet = new Set(born.map((b) => b.i));
     const diedMap = new Map(died.map((d) => [d.i, d.color]));
@@ -132,6 +147,7 @@ export class Renderer {
       this.winningPath.remove();
       this.winningPath = null;
     }
+    const flyDur = anim ? `${anim.durMs}ms` : null;
     this.cellGroups.forEach((cg, i) => {
       // clear previous stone and marks
       if (cg.stone) { cg.stone.remove(); cg.stone = null; }
@@ -143,7 +159,32 @@ export class Renderer {
 
       if (v !== EMPTY) {
         cg.stone = this._stoneShape(v, cg.cx, cg.cy);
+        if (anim) {
+          if (anim.grow && anim.grow.has(i)) {
+            // born cell: grow from the cell centre to full size
+            cg.stone.classList.add('grow-in');
+            cg.stone.style.setProperty('--grow-dur', flyDur);
+          } else if (anim.fly && anim.fly.type === MOVE_DROP && anim.fly.cell === i) {
+            // dropped fleck: fly in from the mover's beak
+            this._applyFly(cg.stone, i, anim.fly.color, 'fly-in', flyDur);
+          }
+        }
         cg.g.appendChild(cg.stone);
+      } else if (anim) {
+        // Empty cell that needs a transient ghost stone for its animation.
+        if (anim.shrink && anim.shrink.has(i)) {
+          // dying cell: shrink a ghost of its former colour toward the centre
+          const ghost = this._stoneShape(anim.shrink.get(i), cg.cx, cg.cy);
+          ghost.classList.add('shrink-out');
+          ghost.style.setProperty('--grow-dur', flyDur);
+          cg.g.appendChild(ghost); cg.marks.push(ghost);
+        }
+        if (anim.fly && anim.fly.type !== MOVE_DROP && anim.fly.cell === i) {
+          // picked fleck: fly a ghost of the mover's stone out to the beak
+          const ghost = this._stoneShape(anim.fly.color, cg.cx, cg.cy);
+          this._applyFly(ghost, i, anim.fly.color, 'fly-out', flyDur);
+          cg.g.appendChild(ghost); cg.marks.push(ghost);
+        }
       }
       if (showHighlights && bornSet.has(i)) {
         const ring = document.createElementNS(SVGNS, 'circle');
@@ -169,6 +210,18 @@ export class Renderer {
     }
   }
 
+  // Give `el` a fleck-fly animation between the mover's beak and cell `i`.
+  // `dir` is 'fly-in' (beak -> cell) or 'fly-out' (cell -> beak).
+  _applyFly(el, i, color, dir, durMs) {
+    const anchor = this.beakAnchors[color] || [this.cellGroups[i].cx, this.cellGroups[i].cy];
+    const dx = anchor[0] - this.cellGroups[i].cx;
+    const dy = anchor[1] - this.cellGroups[i].cy;
+    el.classList.add(dir);
+    el.style.setProperty('--fx', `${dx.toFixed(2)}px`);
+    el.style.setProperty('--fy', `${dy.toFixed(2)}px`);
+    el.style.setProperty('--fly-dur', durMs);
+  }
+
   _winningPolyline(player, path) {
     const project = (point, segment) => {
       const dx = segment.x2 - segment.x1;
@@ -188,6 +241,9 @@ export class Renderer {
     );
     poly.setAttribute('class', 'winning-connection');
     poly.style.stroke = COLOR_VAR[player];
+    // Glow a bit lighter than the stones themselves; CSS fades this in then
+    // pulses it (see .winning-connection in style.css).
+    poly.style.setProperty('--win-glow', COLOR_SOFT[player]);
     return poly;
   }
 
