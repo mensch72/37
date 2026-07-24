@@ -281,7 +281,7 @@ export function rimAnchors(board, p) {
   return held;
 }
 
-// ---- Full game state machine for the app (beak economy + superko + elimination) ----
+// ---- Full game state machine for the app (beak economy + superko) ----
 
 // A move is encoded as an integer in [0, 2N): drop@i for i in [0,N), pick@(i-N)
 // for i in [N, 2N).
@@ -316,7 +316,7 @@ export class Game {
     this.ply = 0;
     this.winner = null;
     this.over = false;
-    this.endReason = null; // 'connection' | 'elimination' | 'stuck'
+    this.endReason = null; // 'connection' | 'stuck'
     this.lastBorn = [];
     this.lastDied = [];
     this.history = new Set();
@@ -402,15 +402,7 @@ export class Game {
   }
 
   _nextLivePlayer(afterBoard, afterBeaks, from) {
-    // recompute alive on the resulting position for elimination bookkeeping
-    const count = [0, 0, 0];
-    for (let i = 0; i < N; i++) if (afterBoard[i] !== EMPTY) count[afterBoard[i]]++;
-    const aliveNow = [0, 1, 2].map(q => afterBeaks[q] > 0 || count[q] > 0);
-    for (let step = 1; step <= 3; step++) {
-      const q = (from + step) % 3;
-      if (aliveNow[q]) return q;
-    }
-    return from; // nobody alive (shouldn't happen); caller handles end
+    return (from + 1) % 3;
   }
 
   _moveIsLegal(p, type, cell) {
@@ -435,25 +427,11 @@ export class Game {
     this.lastDied = g.died;
     this.ply++;
 
-    // update elimination status: a player is out if naturally eliminated (empty
-    // beak and no cells) or has a fully blocked side (issue #12). Once out, they
-    // stay out — their cells remain on the board as inert terrain.
-    for (let q = 0; q < 3; q++) {
-      if (this.alive[q] && (this.isEliminated(q) || this.isBlocked(q))) this.alive[q] = false;
-    }
-
     const w = winnerAfter(this.board, p);
     if (w !== null) {
       this.winner = w;
       this.over = true;
       this.endReason = 'connection';
-      return this;
-    }
-    const aliveCount = this.alive.filter(Boolean).length;
-    if (aliveCount <= 1) {
-      this.winner = this.alive.indexOf(true);
-      this.over = true;
-      this.endReason = 'elimination';
       return this;
     }
     this.toMove = this._nextLivePlayer(this.board, this.beaks, p);
@@ -462,37 +440,21 @@ export class Game {
     return this;
   }
 
-  // If the player to move is out (already marked dead, naturally eliminated, or
-  // with no legal move), advance until a player who can act is found or the game
-  // ends. The persistent `alive` flag also carries blocked-side elimination
-  // (issue #12), so a blocked player who still owns terrain is skipped here.
+  // Advance past any player who has no legal move right now (e.g. empty beak and
+  // no cells, or every move is superko-illegal). A player is never permanently
+  // disabled — they may regain the ability to move later via a 2-2 birth. If we
+  // cycle through all three players without finding anyone who can act, declare
+  // stalemate.
   _skipDeadPlayers() {
-    let guard = 0;
-    while (!this.over && guard++ < 6) {
-      if (!this.alive[this.toMove]) {
-        // already out (blocked-side or a prior elimination) — just advance
-      } else if (this.isEliminated(this.toMove)) {
-        this.alive[this.toMove] = false;
-      } else if (this.legalMoves(this.toMove).length === 0) {
-        // no legal move -> eliminated (superko/zugzwang backstop)
-        this.alive[this.toMove] = false;
-      } else {
+    for (let guard = 0; guard < 3; guard++) {
+      if (this.legalMoves(this.toMove).length > 0) {
         return; // current player can act
       }
-      const aliveCount = this.alive.filter(Boolean).length;
-      if (aliveCount <= 1) {
-        this.winner = this.alive.indexOf(true);
-        this.over = true;
-        this.endReason = 'elimination';
-        return;
-      }
-      // advance to next player that is still marked alive
-      let moved = false;
-      for (let step = 1; step <= 3; step++) {
-        const q = (this.toMove + step) % 3;
-        if (this.alive[q]) { this.toMove = q; moved = true; break; }
-      }
-      if (!moved) { this.over = true; this.winner = null; this.endReason = 'stuck'; return; }
+      this.toMove = (this.toMove + 1) % 3;
     }
+    // all three players stuck
+    this.over = true;
+    this.winner = null;
+    this.endReason = 'stuck';
   }
 }

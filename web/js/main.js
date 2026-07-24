@@ -210,11 +210,8 @@ class Controller {
       beaks: snap.beaks,
       cellCount: (p) => { let n = 0; for (let i = 0; i < snap.board.length; i++) if (snap.board[i] === p) n++; return n; },
       totalCells: (p) => { let n = 0; for (let i = 0; i < snap.board.length; i++) if (snap.board[i] === p) n++; return n + snap.beaks[p]; },
-      // A seat is shown "out" when the engine has marked it not alive (natural
-      // elimination or a fully blocked side, issue #12); fall back to the
-      // beak+board test for snapshots taken before the flag existed.
-      isEliminated: (p) => (snap.alive ? !snap.alive[p]
-        : snap.beaks[p] === 0 && (() => { for (let i = 0; i < snap.board.length; i++) if (snap.board[i] === p) return false; return true; })()),
+      // Elimination has been removed; isEliminated always returns false.
+      isEliminated: (p) => false,
     };
   }
 
@@ -224,8 +221,7 @@ class Controller {
       if (snap.winner === null) {
         banner.textContent = 'Game over — no winner (stalemate).';
       } else {
-        const how = snap.endReason === 'elimination' ? 'by elimination' : 'connected their sides';
-        banner.textContent = `${COLOR_NAME[snap.winner]} wins — ${how}!`;
+        banner.textContent = `${COLOR_NAME[snap.winner]} wins — connected their sides!`;
       }
       banner.style.color = snap.winner === null ? '' : `var(--${['red', 'yellow', 'blue'][snap.winner]})`;
     } else {
