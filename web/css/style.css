@@ -65,6 +65,15 @@ h2 { margin-top: 0; }
 .speed-control { background: #f7f6f1; border-radius: 8px; padding: 0.7rem; }
 .speed-control label { display: flex; flex-direction: column; font-weight: 600; font-size: 0.9rem; }
 #ai-speed-game, #ai-temperature-game { margin-top: 0.15rem; }
+.temperature-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.15rem; }
+.temperature-row input[type="range"] { flex: 1 1 auto; min-width: 0; margin-top: 0; }
+.temperature-row input[type="number"] {
+  width: 6.5rem;
+  padding: 0.3rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font: inherit;
+}
 
 .chip { width: 18px; height: 18px; display: inline-block; }
 .chip-0 { background: var(--red); clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }

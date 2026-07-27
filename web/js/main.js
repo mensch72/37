@@ -5,8 +5,8 @@ import { Renderer, renderPlayers, COLOR_NAME } from './ui.js';
 import { Policy, LearnedPlayer } from './ai.js';
 
 const $ = (sel) => document.querySelector(sel);
-const DEFAULT_AI_TEMPERATURE = 0.01;
-const AI_TEMPERATURE_MAX_MULTIPLIER = 10;
+const DEFAULT_AI_TEMPERATURE = 0.001;
+const MAX_AI_TEMPERATURE = DEFAULT_AI_TEMPERATURE * 5;
 
 // Beak dial (issue #1's "N"): the number of stones a seat can hold off-board, i.e.
 // how many drops it can make before it must pick one back up. "novice" is the
@@ -72,18 +72,26 @@ class Controller {
     this.speedInputs.forEach((inp) => inp.addEventListener('input', (e) => applySpeed(e.target.value)));
     applySpeed(this.speedInputs.length ? this.speedInputs[0].value : 2);
     this.temperatureInputs = [$('#ai-temperature'), $('#ai-temperature-game')].filter(Boolean);
+    this.temperatureExactInputs = [$('#ai-temperature-exact'), $('#ai-temperature-game-exact')].filter(Boolean);
     this.temperatureLabels = [$('#ai-temperature-value'), $('#ai-temperature-game-value')].filter(Boolean);
-    const applyTemperature = (multiplier) => {
-      const mult = Math.max(0, Math.min(AI_TEMPERATURE_MAX_MULTIPLIER, parseFloat(multiplier)));
-      const temp = DEFAULT_AI_TEMPERATURE * mult;
-      const text = `${mult.toFixed(1)}× default (${temp.toFixed(3)})`;
+    const formatTemperature = (temp) => temp.toFixed(6).replace(/\.?0+$/, '');
+    const applyTemperature = (value) => {
+      const parsed = parseFloat(value);
+      const temp = Number.isFinite(parsed)
+        ? Math.max(0, Math.min(MAX_AI_TEMPERATURE, parsed))
+        : DEFAULT_AI_TEMPERATURE;
+      const mult = temp / DEFAULT_AI_TEMPERATURE;
+      const tempText = formatTemperature(temp);
+      const text = `${tempText} (${mult.toFixed(2)}× default)`;
       this.aiTemperature = temp;
-      this.temperatureInputs.forEach((inp) => { inp.value = String(mult); });
+      this.temperatureInputs.forEach((inp) => { inp.value = tempText; });
+      this.temperatureExactInputs.forEach((inp) => { inp.value = tempText; });
       this.temperatureLabels.forEach((lab) => { lab.textContent = text; });
       if (this.ai) this.ai.temperature = temp;
     };
     this.temperatureInputs.forEach((inp) => inp.addEventListener('input', (e) => applyTemperature(e.target.value)));
-    applyTemperature(this.temperatureInputs.length ? this.temperatureInputs[0].value : 1);
+    this.temperatureExactInputs.forEach((inp) => inp.addEventListener('change', (e) => applyTemperature(e.target.value)));
+    applyTemperature(this.temperatureInputs.length ? this.temperatureInputs[0].value : DEFAULT_AI_TEMPERATURE);
     $('#scrubber').addEventListener('input', (e) => this.viewAt(+e.target.value));
     $('#hist-first').addEventListener('click', () => this.viewAt(0));
     $('#hist-prev').addEventListener('click', () => this.viewAt(this.viewIdx - 1));
