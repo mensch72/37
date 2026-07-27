@@ -75,7 +75,7 @@ class Controller {
     this.temperatureExactInputs = [$('#ai-temperature-exact'), $('#ai-temperature-game-exact')].filter(Boolean);
     this.temperatureLabels = [$('#ai-temperature-value'), $('#ai-temperature-game-value')].filter(Boolean);
     const formatTemperature = (temp) => temp.toFixed(6).replace(/\.?0+$/, '');
-    const applyTemperature = (value) => {
+    const applyTemperature = (value, { exactInput = null, commit = true } = {}) => {
       const parsed = parseFloat(value);
       const temp = Number.isFinite(parsed)
         ? Math.max(0, Math.min(MAX_AI_TEMPERATURE, parsed))
@@ -84,13 +84,23 @@ class Controller {
       const tempText = formatTemperature(temp);
       const text = `${tempText} (${mult.toFixed(2)}× default)`;
       this.aiTemperature = temp;
-      this.temperatureInputs.forEach((inp) => { inp.value = tempText; });
-      this.temperatureExactInputs.forEach((inp) => { inp.value = tempText; });
+      this.temperatureInputs.forEach((inp) => { inp.value = String(temp); });
+      this.temperatureExactInputs.forEach((inp) => {
+        if (!commit && inp === exactInput) return;
+        inp.value = tempText;
+      });
       this.temperatureLabels.forEach((lab) => { lab.textContent = text; });
       if (this.ai) this.ai.temperature = temp;
     };
     this.temperatureInputs.forEach((inp) => inp.addEventListener('input', (e) => applyTemperature(e.target.value)));
-    this.temperatureExactInputs.forEach((inp) => inp.addEventListener('change', (e) => applyTemperature(e.target.value)));
+    this.temperatureExactInputs.forEach((inp) => {
+      inp.addEventListener('input', (e) => {
+        if (e.target.value === '') return;
+        if (!Number.isFinite(parseFloat(e.target.value))) return;
+        applyTemperature(e.target.value, { exactInput: e.target, commit: false });
+      });
+      inp.addEventListener('change', (e) => applyTemperature(e.target.value, { exactInput: e.target, commit: true }));
+    });
     applyTemperature(this.temperatureInputs.length ? this.temperatureInputs[0].value : DEFAULT_AI_TEMPERATURE);
     $('#scrubber').addEventListener('input', (e) => this.viewAt(+e.target.value));
     $('#hist-first').addEventListener('click', () => this.viewAt(0));
