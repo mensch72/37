@@ -5,6 +5,8 @@ import { Renderer, renderPlayers, COLOR_NAME } from './ui.js';
 import { Policy, LearnedPlayer } from './ai.js';
 
 const $ = (sel) => document.querySelector(sel);
+const DEFAULT_AI_TEMPERATURE = 0.01;
+const AI_TEMPERATURE_MAX_MULTIPLIER = 10;
 
 // Beak dial (issue #1's "N"): the number of stones a seat can hold off-board, i.e.
 // how many drops it can make before it must pick one back up. "novice" is the
@@ -48,6 +50,7 @@ class Controller {
     this.aiTimer = null;
     this.animTimers = [];
     this.aiMoveMs = 2000; // computer move delay so humans can follow the play
+    this.aiTemperature = DEFAULT_AI_TEMPERATURE;
     this._bindControls();
   }
 
@@ -68,6 +71,19 @@ class Controller {
     };
     this.speedInputs.forEach((inp) => inp.addEventListener('input', (e) => applySpeed(e.target.value)));
     applySpeed(this.speedInputs.length ? this.speedInputs[0].value : 2);
+    this.temperatureInputs = [$('#ai-temperature'), $('#ai-temperature-game')].filter(Boolean);
+    this.temperatureLabels = [$('#ai-temperature-value'), $('#ai-temperature-game-value')].filter(Boolean);
+    const applyTemperature = (multiplier) => {
+      const mult = Math.max(0, Math.min(AI_TEMPERATURE_MAX_MULTIPLIER, parseFloat(multiplier)));
+      const temp = DEFAULT_AI_TEMPERATURE * mult;
+      const text = `${mult.toFixed(1)}× default (${temp.toFixed(3)})`;
+      this.aiTemperature = temp;
+      this.temperatureInputs.forEach((inp) => { inp.value = String(mult); });
+      this.temperatureLabels.forEach((lab) => { lab.textContent = text; });
+      if (this.ai) this.ai.temperature = temp;
+    };
+    this.temperatureInputs.forEach((inp) => inp.addEventListener('input', (e) => applyTemperature(e.target.value)));
+    applyTemperature(this.temperatureInputs.length ? this.temperatureInputs[0].value : 1);
     $('#scrubber').addEventListener('input', (e) => this.viewAt(+e.target.value));
     $('#hist-first').addEventListener('click', () => this.viewAt(0));
     $('#hist-prev').addEventListener('click', () => this.viewAt(this.viewIdx - 1));
@@ -105,7 +121,7 @@ class Controller {
       $('#ai-status').textContent = 'Loading learned policy…';
       try {
         const policy = await getPolicy(variant);
-        this.ai = new LearnedPlayer(policy, { depth, topK: 8, survMax });
+        this.ai = new LearnedPlayer(policy, { depth, topK: 8, temperature: this.aiTemperature, survMax });
         $('#ai-status').textContent = '';
       } catch (err) {
         this.ai = null;

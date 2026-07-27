@@ -61,10 +61,10 @@ h2 { margin-top: 0; }
 .difficulty { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: 1rem 0; }
 .difficulty label { display: flex; flex-direction: column; font-weight: 600; font-size: 0.9rem; }
 .speed-value { font-weight: 400; font-size: 0.8rem; color: #6a675f; margin-top: 0.2rem; }
-#ai-speed { margin-top: 0.15rem; }
+#ai-speed, #ai-temperature { margin-top: 0.15rem; }
 .speed-control { background: #f7f6f1; border-radius: 8px; padding: 0.7rem; }
 .speed-control label { display: flex; flex-direction: column; font-weight: 600; font-size: 0.9rem; }
-#ai-speed-game { margin-top: 0.15rem; }
+#ai-speed-game, #ai-temperature-game { margin-top: 0.15rem; }
 
 .chip { width: 18px; height: 18px; display: inline-block; }
 .chip-0 { background: var(--red); clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
