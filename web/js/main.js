@@ -80,9 +80,8 @@ class Controller {
         ? Math.max(0, Math.min(MAX_AI_TEMPERATURE, parsed))
         : null;
     };
-    const formatTemperatureValue = (temp) => temp.toFixed(6).replace(/\.?0+$/, '');
-    const applyTemperature = (value, { exactInput = null, commit = true } = {}) => {
-      const temp = parseTemperature(value) ?? DEFAULT_AI_TEMPERATURE;
+    const formatTemperatureValue = (temp) => temp.toFixed(6).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+    const syncTemperature = (temp, { exactInput = null, commit = true } = {}) => {
       const mult = temp / DEFAULT_AI_TEMPERATURE;
       const tempText = formatTemperatureValue(temp);
       const text = `${tempText} (${mult.toFixed(2)}× default)`;
@@ -97,11 +96,13 @@ class Controller {
       this.temperatureLabels.forEach((lab) => { lab.textContent = text; });
       if (this.ai) this.ai.temperature = temp;
     };
+    const applyTemperature = (value, opts = {}) => syncTemperature(parseTemperature(value) ?? DEFAULT_AI_TEMPERATURE, opts);
     this.temperatureInputs.forEach((inp) => inp.addEventListener('input', (e) => applyTemperature(e.target.value)));
     this.temperatureExactInputs.forEach((inp) => {
       inp.addEventListener('input', (e) => {
-        if (parseTemperature(e.target.value) === null) return;
-        applyTemperature(e.target.value, { exactInput: e.target, commit: false });
+        const temp = parseTemperature(e.target.value);
+        if (temp === null) return;
+        syncTemperature(temp, { exactInput: e.target, commit: false });
       });
       inp.addEventListener('change', (e) => applyTemperature(e.target.value, { exactInput: e.target, commit: true }));
     });
