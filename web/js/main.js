@@ -82,10 +82,7 @@ class Controller {
         ? Math.max(0, Math.min(MAX_AI_TEMPERATURE, parsed))
         : null;
     };
-    const formatTemperatureValue = (temp) => {
-      const fixed = temp.toFixed(6);
-      return fixed.includes('.') ? fixed.replace(/0+$/, '').replace(/\.$/, '') : fixed;
-    };
+    const formatTemperatureValue = (temp) => parseFloat(temp.toFixed(6)).toString();
     const syncTemperature = (temp, { exactInput = null, commit = true } = {}) => {
       const mult = temp / DEFAULT_AI_TEMPERATURE;
       const tempText = formatTemperatureValue(temp);
@@ -111,7 +108,7 @@ class Controller {
       });
       inp.addEventListener('change', (e) => applyTemperature(e.target.value, { exactInput: e.target, commit: true }));
     });
-    applyTemperature(this.temperatureInputs.length ? this.temperatureInputs[0].value : DEFAULT_AI_TEMPERATURE);
+    applyTemperature(this.temperatureInputs.length ? this.temperatureInputs[0].value : String(DEFAULT_AI_TEMPERATURE));
     $('#scrubber').addEventListener('input', (e) => this.viewAt(+e.target.value));
     $('#hist-first').addEventListener('click', () => this.viewAt(0));
     $('#hist-prev').addEventListener('click', () => this.viewAt(this.viewIdx - 1));
