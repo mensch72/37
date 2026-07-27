@@ -74,14 +74,14 @@ class Controller {
     this.temperatureInputs = [$('#ai-temperature'), $('#ai-temperature-game')].filter(Boolean);
     this.temperatureExactInputs = [$('#ai-temperature-exact'), $('#ai-temperature-game-exact')].filter(Boolean);
     this.temperatureLabels = [$('#ai-temperature-value'), $('#ai-temperature-game-value')].filter(Boolean);
-    const formatTemperature = (temp) => temp.toFixed(6).replace(/\.?0+$/, '');
+    const trimTemperatureDecimals = (temp) => temp.toFixed(6).replace(/\.?0+$/, '');
     const applyTemperature = (value, { exactInput = null, commit = true } = {}) => {
       const parsed = parseFloat(value);
       const temp = Number.isFinite(parsed)
         ? Math.max(0, Math.min(MAX_AI_TEMPERATURE, parsed))
         : DEFAULT_AI_TEMPERATURE;
       const mult = temp / DEFAULT_AI_TEMPERATURE;
-      const tempText = formatTemperature(temp);
+      const tempText = trimTemperatureDecimals(temp);
       const text = `${tempText} (${mult.toFixed(2)}× default)`;
       this.aiTemperature = temp;
       this.temperatureInputs.forEach((inp) => { inp.value = String(temp); });
@@ -95,7 +95,6 @@ class Controller {
     this.temperatureInputs.forEach((inp) => inp.addEventListener('input', (e) => applyTemperature(e.target.value)));
     this.temperatureExactInputs.forEach((inp) => {
       inp.addEventListener('input', (e) => {
-        if (e.target.value === '') return;
         if (!Number.isFinite(parseFloat(e.target.value))) return;
         applyTemperature(e.target.value, { exactInput: e.target, commit: false });
       });
