@@ -74,18 +74,23 @@ class Controller {
     this.temperatureInputs = [$('#ai-temperature'), $('#ai-temperature-game')].filter(Boolean);
     this.temperatureExactInputs = [$('#ai-temperature-exact'), $('#ai-temperature-game-exact')].filter(Boolean);
     this.temperatureLabels = [$('#ai-temperature-value'), $('#ai-temperature-game-value')].filter(Boolean);
-    const trimTemperatureDecimals = (temp) => temp.toFixed(6).replace(/\.?0+$/, '');
-    const applyTemperature = (value, { exactInput = null, commit = true } = {}) => {
+    const parseTemperature = (value) => {
       const parsed = parseFloat(value);
-      const temp = Number.isFinite(parsed)
+      return Number.isFinite(parsed)
         ? Math.max(0, Math.min(MAX_AI_TEMPERATURE, parsed))
-        : DEFAULT_AI_TEMPERATURE;
+        : null;
+    };
+    const formatTemperatureValue = (temp) => temp.toFixed(6).replace(/\.?0+$/, '');
+    const applyTemperature = (value, { exactInput = null, commit = true } = {}) => {
+      const temp = parseTemperature(value) ?? DEFAULT_AI_TEMPERATURE;
       const mult = temp / DEFAULT_AI_TEMPERATURE;
-      const tempText = trimTemperatureDecimals(temp);
+      const tempText = formatTemperatureValue(temp);
       const text = `${tempText} (${mult.toFixed(2)}× default)`;
       this.aiTemperature = temp;
       this.temperatureInputs.forEach((inp) => { inp.value = String(temp); });
       this.temperatureExactInputs.forEach((inp) => {
+        // Keep the actively edited exact-value field untouched on `input` so we do
+        // not overwrite in-progress typing; normalise it on `change` instead.
         if (!commit && inp === exactInput) return;
         inp.value = tempText;
       });
@@ -95,7 +100,7 @@ class Controller {
     this.temperatureInputs.forEach((inp) => inp.addEventListener('input', (e) => applyTemperature(e.target.value)));
     this.temperatureExactInputs.forEach((inp) => {
       inp.addEventListener('input', (e) => {
-        if (!Number.isFinite(parseFloat(e.target.value))) return;
+        if (parseTemperature(e.target.value) === null) return;
         applyTemperature(e.target.value, { exactInput: e.target, commit: false });
       });
       inp.addEventListener('change', (e) => applyTemperature(e.target.value, { exactInput: e.target, commit: true }));
