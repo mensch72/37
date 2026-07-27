@@ -71,6 +71,8 @@ class Controller {
     };
     this.speedInputs.forEach((inp) => inp.addEventListener('input', (e) => applySpeed(e.target.value)));
     applySpeed(this.speedInputs.length ? this.speedInputs[0].value : 2);
+    // The temperature sliders now use direct temperature values (0..0.005), not
+    // multipliers of the default temperature.
     this.temperatureInputs = [$('#ai-temperature'), $('#ai-temperature-game')].filter(Boolean);
     this.temperatureExactInputs = [$('#ai-temperature-exact'), $('#ai-temperature-game-exact')].filter(Boolean);
     this.temperatureLabels = [$('#ai-temperature-value'), $('#ai-temperature-game-value')].filter(Boolean);
@@ -80,7 +82,10 @@ class Controller {
         ? Math.max(0, Math.min(MAX_AI_TEMPERATURE, parsed))
         : null;
     };
-    const formatTemperatureValue = (temp) => temp.toFixed(6).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+    const formatTemperatureValue = (temp) => {
+      const fixed = temp.toFixed(6);
+      return fixed.includes('.') ? fixed.replace(/0+$/, '').replace(/\.$/, '') : fixed;
+    };
     const syncTemperature = (temp, { exactInput = null, commit = true } = {}) => {
       const mult = temp / DEFAULT_AI_TEMPERATURE;
       const tempText = formatTemperatureValue(temp);
