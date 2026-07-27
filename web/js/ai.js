@@ -95,7 +95,7 @@ export class Policy {
 // player pick their value-maximising reply (a max-n backup restricted to the top-K
 // policy moves to bound cost). Move ordering / priors come from the policy head.
 export class LearnedPlayer {
-  constructor(policy, { depth = 1, topK = 8, temperature = 0.0, rimDefense = 0.08, survMax = DEFAULT_SURV_MAX } = {}) {
+  constructor(policy, { depth = 1, topK = 8, temperature = 0.1, rimDefense = 0.08, survMax = DEFAULT_SURV_MAX } = {}) {
     this.policy = policy;
     this.depth = depth;
     this.topK = topK;
